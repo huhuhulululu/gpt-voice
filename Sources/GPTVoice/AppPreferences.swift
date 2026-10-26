@@ -9,6 +9,7 @@ final class AppPreferences: ObservableObject {
         static let hotkey = "hotkey"
         static let automaticPaste = "automaticPaste"
         static let soundCues = "soundCues"
+        static let hapticCues = "hapticCues"
         static let onboardingCompleted = "onboardingCompleted"
         static let theme = "theme"
         static let accent = "accent"
@@ -58,6 +59,10 @@ final class AppPreferences: ObservableObject {
 
     @Published var soundCues: Bool {
         didSet { defaults.set(soundCues, forKey: Key.soundCues) }
+    }
+
+    @Published var hapticCues: Bool {
+        didSet { defaults.set(hapticCues, forKey: Key.hapticCues) }
     }
 
     @Published var onboardingCompleted: Bool {
@@ -119,6 +124,15 @@ final class AppPreferences: ObservableObject {
 
     var usesOpenAICompatible: Bool { transcriptionProvider == .openAICompatible }
 
+    /// Short Home / Privacy label for the configured host. Never includes the key or path.
+    var transcriptionHostTitle: String {
+        let host = URL(string: openAIBaseURL)?.host?.lowercased() ?? ""
+        if host.contains("groq.com") { return "Groq" }
+        if host.contains("openai.com") { return "OpenAI" }
+        if host.contains("localhost") || host.contains("127.0.0.1") { return "Local server" }
+        return "OpenAI-compatible server"
+    }
+
     func openAICompatibleIsReady(hasAPIKey: Bool) -> Bool {
         guard (try? OpenAICompatibleURL.transcriptions(from: openAIBaseURL)) != nil else { return false }
         if OpenAICompatibleURL.isLocalHost(openAIBaseURL) { return true }
@@ -130,6 +144,7 @@ final class AppPreferences: ObservableObject {
         defaults.register(defaults: [
             Key.automaticPaste: true,
             Key.soundCues: false,
+            Key.hapticCues: false,
             Key.onboardingCompleted: false,
             Key.transcriptionProvider: TranscriptionProvider.codex.rawValue,
             Key.openAIBaseURL: "https://api.openai.com/v1",
@@ -147,6 +162,7 @@ final class AppPreferences: ObservableObject {
         hotkey = stored.flatMap { $0.isValid ? $0 : nil } ?? .default
         automaticPaste = defaults.bool(forKey: Key.automaticPaste)
         soundCues = defaults.bool(forKey: Key.soundCues)
+        hapticCues = defaults.bool(forKey: Key.hapticCues)
         onboardingCompleted = defaults.bool(forKey: Key.onboardingCompleted)
         theme = defaults.string(forKey: Key.theme).flatMap(AppTheme.init(rawValue:)) ?? .system
         accent = defaults.string(forKey: Key.accent).flatMap(AccentChoice.init(rawValue:)) ?? .system

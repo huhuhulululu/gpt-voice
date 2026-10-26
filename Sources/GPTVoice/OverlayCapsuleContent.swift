@@ -8,7 +8,7 @@ struct OverlayCapsuleContent: View {
     @ViewBuilder var body: some View {
         switch state {
         case .recording(let elapsed, let level):
-            RecordingDot()
+            RecordingDot(level: level)
             LevelMeterView(level: level).frame(width: 36, height: 18)
             Text(DictationOverlayState.format(elapsed))
                 .font(AppType.timer)
@@ -31,9 +31,7 @@ struct OverlayCapsuleContent: View {
                 Color.clear.frame(width: 6, height: 24)
             }
         case .success(let label):
-            Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(AppPalette.success)
-                .accessibilityHidden(true)
+            OverlaySuccessMark()
             Text(label)
                 .font(AppType.control)
                 .lineLimit(1)

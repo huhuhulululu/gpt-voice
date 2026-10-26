@@ -15,6 +15,8 @@ struct DictationFailure: Equatable {
         case signInThenRetry
         /// Turn on the microphone in System Settings.
         case microphoneSettings
+        /// Open Settings → Transcription.
+        case transcriptionSettings
         /// Nothing to retry.
         case none
     }
@@ -29,7 +31,7 @@ struct DictationFailure: Equatable {
     /// Compact overlay button that runs `AppModel.recoverFromOverlay`.
     var overlayActionTitle: String? {
         switch recovery {
-        case .microphoneSettings: return "Open Settings"
+        case .microphoneSettings, .transcriptionSettings: return "Open Settings"
         case .signInThenRetry: return "Sign in"
         case .retry: return "Retry"
         case .none: return nil
@@ -51,11 +53,11 @@ struct DictationFailure: Equatable {
             self.init(message: "Your ChatGPT sign-in is missing or expired. Sign in, then select Retry.",
                       recovery: .signInThenRetry, overlayMessage: "Sign in to ChatGPT")
         case DictationError.apiKeyRejected:
-            self.init(message: "The transcription server rejected the API key. Check Settings → Transcription, then select Retry.",
-                      recovery: .retry, overlayMessage: "Check the API key")
+            self.init(message: "The transcription server rejected the API key. Check Settings → Transcription, then try again.",
+                      recovery: .transcriptionSettings, overlayMessage: "Check the API key")
         case DictationError.invalidEndpoint:
             self.init(message: "The transcription server URL is not valid. Check Settings → Transcription.",
-                      recovery: .retry, overlayMessage: "Check the server URL")
+                      recovery: .transcriptionSettings, overlayMessage: "Check the server URL")
         case DictationError.refreshUnavailable:
             self.init(message: "Install Codex CLI and sign in with ChatGPT, then select Retry.",
                       recovery: .signInThenRetry, overlayMessage: "Sign in to ChatGPT")
@@ -69,8 +71,8 @@ struct DictationFailure: Equatable {
             self.init(message: "No speech found. Try another recording.", recovery: .none,
                       overlayMessage: "No speech found", kind: .noSpeech)
         case DictationError.service(429):
-            self.init(message: "ChatGPT reached a request limit. Wait a moment, then select Retry.", recovery: .retry,
-                      overlayMessage: "Try again in a moment")
+            self.init(message: "The transcription server reached a request limit. Wait a moment, then select Retry.",
+                      recovery: .retry, overlayMessage: "Try again in a moment")
         case let error as DictationError:
             self.init(message: "\(error.localizedDescription) Select Retry to send the audio again.", recovery: .retry,
                       overlayMessage: "Transcription failed")

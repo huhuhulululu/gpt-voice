@@ -34,6 +34,8 @@ final class AppModel: NSObject, ObservableObject {
     @Published private(set) var openAIKeyPresent = false
     @Published private(set) var connectionTest: ConnectionTestResult?
     @Published private(set) var isTestingConnection = false
+    /// Settings opens this page when set, then clears it.
+    @Published var preferredSettingsPage: SettingsPage?
 
     private let audio: AudioCapture
     private let paste: PasteCoordinator
@@ -252,7 +254,7 @@ final class AppModel: NSObject, ObservableObject {
         guard transcriptionIsReady else {
             if preferences.usesOpenAICompatible {
                 fail(DictationFailure(message: "Add a transcription server URL and API key in Settings → Transcription, then start dictation.",
-                                      recovery: .retry, overlayMessage: "Configure transcription"))
+                                      recovery: .transcriptionSettings, overlayMessage: "Configure transcription"))
             } else {
                 fail(DictationFailure(message: "Sign in with ChatGPT in Settings, then start dictation.",
                                       recovery: .signInThenRetry, overlayMessage: "Sign in to ChatGPT"))
@@ -451,6 +453,11 @@ final class AppModel: NSObject, ObservableObject {
     func openMicrophoneSettings() { SystemSettingsLink.microphone.open() }
     func openAccessibilitySettings() { SystemSettingsLink.accessibility.open() }
 
+    func openTranscriptionSettings() {
+        preferredSettingsPage = .transcription
+        DistributedNotificationCenter.default().post(name: LaunchOptions.showSettingsNotification, object: nil)
+    }
+
     /// Opens the System Settings pane or sign-in path that matches the current failure.
     func recoverFromOverlay() {
         switch phase {
@@ -462,6 +469,8 @@ final class AppModel: NSObject, ObservableObject {
                 signIn()
             case .retry:
                 retry()
+            case .transcriptionSettings:
+                openTranscriptionSettings()
             case .none:
                 break
             }
@@ -678,6 +687,11 @@ final class AppModel: NSObject, ObservableObject {
         preferences.soundCues = value
     }
 
+    func setHapticCues(_ value: Bool) {
+        guard canChangeSettings else { return }
+        preferences.hapticCues = value
+    }
+
     func setLaunchAtLogin(_ enabled: Bool) {
         launchAtLoginError = nil
         do {
@@ -705,6 +719,17 @@ final class AppModel: NSObject, ObservableObject {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         try? secrets.setSecret(trimmed.isEmpty ? nil : trimmed, for: KeychainSecretStore.apiKeyAccount)
         refreshSecretFlags()
+    }
+
+    func applyGroqPreset() {
+        guard canChangeSettings else { return }
+        preferences.transcriptionProvider = .openAICompatible
+        preferences.openAIBaseURL = "https://api.groq.com/openai/v1"
+        preferences.openAIModel = "whisper-large-v3"
+        if preferences.transcriptionLanguage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            preferences.transcriptionLanguage = "zh"
+        }
+        connectionTest = nil
     }
 
     func clearOpenAIKey() {
@@ -848,6 +873,7 @@ final class AppModel: NSObject, ObservableObject {
 
     private func cue(_ sound: SoundCue) {
         if preferences.soundCues { sound.play() }
+        if preferences.hapticCues { sound.haptic() }
     }
 
     private func playStartCue() {

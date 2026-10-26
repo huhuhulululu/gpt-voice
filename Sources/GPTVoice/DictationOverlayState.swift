@@ -18,9 +18,9 @@ enum DictationOverlayState: Equatable {
             // flash a "Starting" state and resize the overlay on the first hold.
             self = .recording(elapsed: elapsed, level: level)
         case .transcribing:
-            self = .working(label: "Transcribing", cancellable: true)
+            self = .working(label: "Transcribing…", cancellable: true)
         case .pasting:
-            self = .working(label: "Pasting", cancellable: false)
+            self = .working(label: "Pasting…", cancellable: false)
         case .finished(.pasted):
             self = .success(label: "Pasted")
         case .finished(.previewed):

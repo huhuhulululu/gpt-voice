@@ -1,4 +1,5 @@
 import DictationCore
+import Foundation
 import XCTest
 @testable import GPTVoice
 
@@ -24,16 +25,19 @@ final class OverlayStateTests: XCTestCase {
         let timing = OverlayTiming()
         XCTAssertNil(timing.hold(for: .recording(elapsed: 0, level: 0)))
         XCTAssertEqual(timing.hold(for: .success(label: "Pasted")), timing.success)
+        XCTAssertLessThan(timing.success, 1.3)
         XCTAssertEqual(timing.hold(for: .message(label: "Press ⌘V to paste", kind: .info)), timing.pasteHint)
+        XCTAssertLessThan(timing.pasteHint, 2)
         XCTAssertEqual(timing.hold(for: .message(label: "Sign in to ChatGPT", kind: .warning,
                                                 actionTitle: "Sign in")), timing.recoveryHint)
-        XCTAssertLessThan(timing.pasteHint, 3)
     }
 
     func testTranscribingAndPastingShareAWorkingSurface() {
         let transcribing = DictationOverlayState(phase: .transcribing, elapsed: 0, level: 0)
         let pasting = DictationOverlayState(phase: .pasting, elapsed: 0, level: 0)
         XCTAssertEqual(transcribing.transitionID, pasting.transitionID)
+        XCTAssertEqual(transcribing, .working(label: "Transcribing…", cancellable: true))
+        XCTAssertEqual(pasting, .working(label: "Pasting…", cancellable: false))
         XCTAssertEqual(transcribing.transitionID, "working")
         XCTAssertNotEqual(transcribing.transitionID, DictationOverlayState(phase: .recording, elapsed: 0, level: 0).transitionID)
     }
@@ -89,5 +93,36 @@ final class OverlayStateTests: XCTestCase {
         XCTAssertEqual(microphone.overlayActionTitle, "Open Settings")
         XCTAssertEqual(DictationOverlayState(phase: .failed(microphone), elapsed: 0, level: 0),
                        .message(label: "Microphone access is off", kind: .warning, actionTitle: "Open Settings"))
+
+        let key = DictationFailure(transcriptionError: DictationError.apiKeyRejected)
+        XCTAssertEqual(key.recovery, .transcriptionSettings)
+        XCTAssertEqual(key.overlayActionTitle, "Open Settings")
+        XCTAssertEqual(DictationOverlayState(phase: .failed(key), elapsed: 0, level: 0),
+                       .message(label: "Check the API key", kind: .warning, actionTitle: "Open Settings"))
+
+        let endpoint = DictationFailure(transcriptionError: DictationError.invalidEndpoint)
+        XCTAssertEqual(endpoint.recovery, .transcriptionSettings)
+        XCTAssertEqual(endpoint.overlayMessage, "Check the server URL")
+    }
+
+    func testNetworkAndRateLimitKeepRetryWithoutNamingChatGPT() {
+        let network = DictationFailure(transcriptionError: URLError(.notConnectedToInternet))
+        XCTAssertEqual(network.recovery, .retry)
+        XCTAssertEqual(network.overlayActionTitle, "Retry")
+        XCTAssertFalse(network.message.contains("ChatGPT"))
+
+        let limited = DictationFailure(transcriptionError: DictationError.service(429))
+        XCTAssertEqual(limited.recovery, .retry)
+        XCTAssertFalse(limited.message.contains("ChatGPT"))
+        XCTAssertTrue(limited.message.contains("request limit"))
+    }
+
+    func testShortUtteranceIsNoSpeechWithoutRetry() {
+        let empty = DictationFailure(transcriptionError: DictationError.emptyTranscript)
+        XCTAssertEqual(empty.kind, .noSpeech)
+        XCTAssertEqual(empty.recovery, .none)
+        XCTAssertNil(empty.overlayActionTitle)
+        XCTAssertEqual(DictationOverlayState(phase: .failed(empty), elapsed: 0, level: 0),
+                       .message(label: "No speech found", kind: .noSpeech))
     }
 }
