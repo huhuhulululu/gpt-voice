@@ -21,7 +21,7 @@ struct ReadinessList: View {
     /// A short value that does not repeat the row title.
     private var connectionValue: String {
         if preferences.usesOpenAICompatible {
-            return model.transcriptionIsReady ? "OpenAI-compatible" : "Needs configuration"
+            return model.transcriptionIsReady ? preferences.transcriptionHostTitle : "Needs configuration"
         }
         switch model.connection {
         case .checking: return "Checking"

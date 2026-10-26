@@ -67,10 +67,10 @@ struct HomePage: View {
             let ready = model.transcriptionIsReady
             StatusRow(tone: ready ? .good : .attention,
                       symbol: ready ? "checkmark.circle.fill" : "exclamationmark.circle.fill",
-                      title: ready ? "OpenAI-compatible server" : "Transcription server needed",
+                      title: ready ? preferences.transcriptionHostTitle : "Transcription server needed",
                       detail: ready
-                        ? "Audio goes to \(preferences.openAIModel) at your configured URL."
-                        : "Add a base URL and API key in Transcription.") {
+                        ? "Audio goes to \(preferences.openAIModel)."
+                        : "Add a base URL and API key in Transcription. Groq uses https://api.groq.com/openai/v1.") {
                 Button("Configure") { goTo(.transcription) }
                     .buttonStyle(AppButtonStyle(kind: .quiet, small: true))
             }

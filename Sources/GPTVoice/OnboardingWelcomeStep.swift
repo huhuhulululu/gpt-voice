@@ -39,25 +39,31 @@ struct OnboardingWelcomeStep: View {
                     if preferences.usesOpenAICompatible {
                         SettingsRow(title: "Base URL") {
                             AppTextField(label: "Base URL", text: $preferences.openAIBaseURL,
-                                         placeholder: "http://127.0.0.1:8080/v1")
+                                         placeholder: "https://api.groq.com/openai/v1")
                         }
                         SettingsRow(title: "API key",
                                     detail: model.openAIKeyPresent ? "A key is saved on this Mac." : nil) {
-                            AppTextField(label: "API key", text: $apiKeyDraft, placeholder: "optional for localhost",
+                            AppTextField(label: "API key", text: $apiKeyDraft, placeholder: "gsk-… or sk-…",
                                          secure: true)
                         }
                         SettingsRow(title: "Save & Test", showsDivider: false) {
-                            Button("Save & Test") { model.testOpenAIConnection(apiKeyDraft: apiKeyDraft) }
+                            HStack(spacing: 8) {
+                                Button("Use Groq") { model.applyGroqPreset() }
+                                    .buttonStyle(AppButtonStyle(kind: .quiet, small: true))
+                                Button(model.isTestingConnection ? "Testing…" : "Save & Test") {
+                                    model.testOpenAIConnection(apiKeyDraft: apiKeyDraft)
+                                }
                                 .buttonStyle(AppButtonStyle(kind: .secondary,
                                                             isLoading: model.isTestingConnection, small: true))
                                 .disabled(model.isTestingConnection)
+                            }
                         }
                     } else {
                         ConnectionPanel(model: model, prominentSignIn: true)
                     }
                 }
                 Text(preferences.usesOpenAICompatible
-                     ? "Audio is sent to your OpenAI-compatible server. Codex remains available."
+                     ? "Audio is sent to your server. Groq uses https://api.groq.com/openai/v1 and whisper-large-v3. Set language to zh for Chinese."
                      : "Audio is sent to ChatGPT for transcription.")
                     .font(AppType.detail)
                     .foregroundStyle(.secondary)
