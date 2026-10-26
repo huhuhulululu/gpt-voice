@@ -13,7 +13,7 @@ struct OverlayCapsule: View {
         .padding(.trailing, 8)
         .frame(height: 40)
         .fixedSize(horizontal: true, vertical: false)
-        .modifier(OverlaySurface(shape: Capsule()))
+        .modifier(OverlaySurface(shape: RoundedRectangle(cornerRadius: 20, style: .continuous)))
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Dictation status")
     }

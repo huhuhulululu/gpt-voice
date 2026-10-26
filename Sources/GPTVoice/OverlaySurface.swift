@@ -11,5 +11,6 @@ struct OverlaySurface<SurfaceShape: InsettableShape>: ViewModifier {
             .background(shape.fill(AppPalette.surface.opacity(increased ? 1 : 0.97)))
             .overlay(shape.strokeBorder(Color.primary.opacity(increased ? 0.5 : 0.12), lineWidth: increased ? 1.5 : 1))
             .clipShape(shape)
+            .shadow(color: Color.black.opacity(increased ? 0 : 0.14), radius: 10, y: 3)
     }
 }

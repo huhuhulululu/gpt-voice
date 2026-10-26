@@ -66,7 +66,7 @@ final class DictationPanelController: NSObject {
             self.presentation.state = .recording(elapsed: elapsed, level: level)
         }
         _ = measure(.recording(elapsed: 0, level: 0))
-        _ = measure(.working(label: "Transcribing", cancellable: true))
+        _ = measure(.working(label: "Transcribing…", cancellable: true))
         _ = measure(.success(label: "Pasted"))
         update(for: model.phase)
     }
