@@ -22,6 +22,10 @@ struct ShortcutPanel: View {
                 }
                 SettingsRow(title: "Presets") {
                     HStack(spacing: 6) {
+                        Button("Left Option") { model.useLeftOption() }
+                            .buttonStyle(AppButtonStyle(kind: .secondary, small: true))
+                            .disabled(!model.canChangeSettings || model.leftOptionIsActive)
+                            .accessibilityLabel("Use Left Option")
                         Button("Command–Space") { model.useCommandSpace() }
                             .buttonStyle(AppButtonStyle(kind: .secondary, small: true))
                             .disabled(!model.canChangeSettings || model.commandSpaceIsActive)
@@ -42,13 +46,16 @@ struct ShortcutPanel: View {
                         if model.hotkeyBlockedBySystem {
                             Button("Keyboard settings") { model.openKeyboardShortcutsSettings() }
                                 .buttonStyle(AppButtonStyle(kind: .secondary, showsArrow: true, small: true))
+                        } else if model.hotkeyNeedsInputMonitoring {
+                            Button("Input Monitoring settings") { model.openInputMonitoringSettings() }
+                                .buttonStyle(AppButtonStyle(kind: .secondary, showsArrow: true, small: true))
                         }
                     }
                 }
             }
 
             InfoDisclosure(label: "Shortcut not responding?",
-                           text: "Another app may use the same keys. Check ChatGPT and System Settings > Keyboard > Keyboard Shortcuts, or choose another shortcut. The recorder cannot capture keys macOS keeps, such as Command–Space. Use the preset for those.")
+                           text: "Another app may use the same keys. Check ChatGPT and System Settings > Keyboard > Keyboard Shortcuts, or choose another shortcut. The recorder cannot capture keys macOS keeps, such as Command–Space. Use the preset for those. You can also tap Left Option, or another Option, Control, or Shift key, by itself. Hold it with another key and it stays a modifier. A modifier tap needs Input Monitoring.")
         }
         // Never leave a listening test behind when the panel goes away.
         .onDisappear { model.endShortcutTest() }

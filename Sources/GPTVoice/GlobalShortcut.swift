@@ -1,14 +1,16 @@
 import Carbon.HIToolbox
 import Foundation
 
-/// Registers one global hotkey with Carbon `RegisterEventHotKey`.
-/// No event tap is used, so Input Monitoring permission is not needed.
+/// Registers one global shortcut.
+/// Key combinations use Carbon and do not need Input Monitoring.
+/// A modifier tapped by itself cannot be a Carbon hotkey, so that path listens for the tap.
 @MainActor
 final class GlobalShortcut {
     enum RegistrationError: LocalizedError, Equatable {
         case invalid(HotkeySpec.Problem)
         case conflict
         case systemShortcut(HotkeySpec)
+        case inputMonitoring
         case system(OSStatus)
 
         var errorDescription: String? {
@@ -19,6 +21,8 @@ final class GlobalShortcut {
                 return spec == .commandSpace
                     ? "Spotlight uses Command–Space. Turn off or change that shortcut in System Settings → Keyboard → Keyboard Shortcuts → Spotlight, then try again."
                     : "macOS uses this shortcut. Change it in System Settings → Keyboard → Keyboard Shortcuts, then try again."
+            case .inputMonitoring:
+                return "This shortcut needs Input Monitoring. Enable GPT Voice in System Settings → Privacy & Security → Input Monitoring. Quit and reopen GPT Voice if the shortcut still does not respond."
             case .system(let status): return "macOS could not register this shortcut (error \(status))."
             }
         }
@@ -28,6 +32,7 @@ final class GlobalShortcut {
 
     private(set) var current: HotkeySpec?
     private var currentRef: EventHotKeyRef?
+    private var tapListener: ModifierTapListener?
     private var currentID: UInt32 = 0
     private var nextID: UInt32 = 1
     private var handlerRef: EventHandlerRef?
@@ -47,6 +52,10 @@ final class GlobalShortcut {
     /// active when the new registration fails.
     func replace(with spec: HotkeySpec) throws {
         if let problem = spec.problem { throw RegistrationError.invalid(problem) }
+        if spec.isModifierTap {
+            try installModifierTap(spec)
+            return
+        }
         if Self.isSystemShortcutEnabled(spec) { throw RegistrationError.systemShortcut(spec) }
         if spec == current, currentRef != nil { return }
 
@@ -74,13 +83,32 @@ final class GlobalShortcut {
         currentRef = ref
         currentID = id
         current = spec
+        tapListener?.stop()
+        tapListener = nil
     }
 
     /// Removes the active shortcut.
     func unregister() {
         if let currentRef { UnregisterEventHotKey(currentRef) }
         currentRef = nil
+        tapListener?.stop()
+        tapListener = nil
         current = nil
+    }
+
+    /// Listens for a lone modifier tap. The previous shortcut stays until this succeeds.
+    private func installModifierTap(_ spec: HotkeySpec) throws {
+        if spec == current, tapListener != nil { return }
+        guard InputMonitoringPermission.isGranted else { throw RegistrationError.inputMonitoring }
+        let listener = ModifierTapListener(keyCode: spec.keyCode, onTap: onPress)
+        guard listener.start() else { throw RegistrationError.inputMonitoring }
+        if let currentRef {
+            UnregisterEventHotKey(currentRef)
+            self.currentRef = nil
+        }
+        tapListener?.stop()
+        tapListener = listener
+        current = spec
     }
 
     private func restore(_ spec: HotkeySpec) {

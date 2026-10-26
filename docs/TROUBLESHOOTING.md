@@ -43,6 +43,11 @@ Command–Space often belongs to Spotlight or another app.
 Change that competing shortcut, or select a different shortcut in GPT Voice.
 The default is Control–Option–Space.
 
+A tap of one modifier key, such as Left Option, is also a shortcut.
+Press and release it by itself to start, then press it again to stop.
+Holding it with another key keeps the normal modifier behavior.
+That shortcut needs Input Monitoring. Enable GPT Voice in System Settings → Privacy & Security → Input Monitoring, then quit and reopen the app if the tap does not respond.
+
 ## Download and installation
 
 Download the official GitHub release. Open the DMG and drag GPT Voice to Applications.

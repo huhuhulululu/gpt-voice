@@ -47,7 +47,7 @@ If macOS shows a verification warning, ignore it and open **System Settings → 
 
 ## A small tool that stays out of the way
 
-- A configurable global shortcut. The default is **Control–Option–Space**.
+- A configurable global shortcut. The default is **Control–Option–Space**. A tap of Left Option, or of another Option, Control, or Shift key, also starts and stops dictation.
 - A compact recording pill with input level, elapsed time, cancel and stop.
 - Automatic paste, or **Command–V** for manual paste.
 - Onboarding with permission recovery and an in-app practice step.

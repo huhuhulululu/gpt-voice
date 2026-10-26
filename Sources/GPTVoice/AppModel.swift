@@ -19,6 +19,8 @@ final class AppModel: NSObject, ObservableObject {
     @Published private(set) var hotkeyError: String?
     /// True when the last shortcut failed because a macOS shortcut, such as Spotlight, owns it.
     @Published private(set) var hotkeyBlockedBySystem = false
+    /// True when the chosen shortcut is a modifier tap and Input Monitoring is missing.
+    @Published private(set) var hotkeyNeedsInputMonitoring = false
     @Published private(set) var isCapturingShortcut = false
     @Published private(set) var shortcutTestStatus: ShortcutTestStatus = .idle
     @Published private(set) var launchAtLogin = LaunchAtLoginStatus.current()
@@ -42,6 +44,9 @@ final class AppModel: NSObject, ObservableObject {
     private var meterTimer: Timer?
     private var permissionRefresh: Task<Void, Never>?
     private var isPracticingInOnboarding = false
+    /// Chosen modifier tap waiting for Input Monitoring. Applied once the grant appears.
+    private var pendingModifierTap: HotkeySpec?
+    private var lastInputMonitoringGrant = InputMonitoringPermission.isGranted
 
     static let installCodexURL = URL(string: "https://developers.openai.com/codex/cli/")!
 
@@ -72,6 +77,9 @@ final class AppModel: NSObject, ObservableObject {
     var commandSpaceIsActive: Bool {
         hotkey == .commandSpace && shortcut?.current == .commandSpace && hotkeyError == nil
     }
+    var leftOptionIsActive: Bool {
+        hotkey == .leftOption && shortcut?.current == .leftOption && hotkeyError == nil
+    }
     var isReadyToDictate: Bool {
         connection.isUsable && (microphone == .granted || microphone == .notRequested)
     }
@@ -89,12 +97,17 @@ final class AppModel: NSObject, ObservableObject {
 
     /// Registers the saved shortcut. Call once after launch.
     func activate() {
+        if preferences.hotkey.isModifierTap, !InputMonitoringPermission.isGranted {
+            _ = InputMonitoringPermission.request()
+        }
         do {
             try shortcut?.replace(with: preferences.hotkey)
             hotkeyError = nil
+            hotkeyBlockedBySystem = false
+            hotkeyNeedsInputMonitoring = false
+            pendingModifierTap = nil
         } catch {
-            hotkeyError = error.localizedDescription
-            if case GlobalShortcut.RegistrationError.systemShortcut = error { hotkeyBlockedBySystem = true }
+            noteShortcutRegistrationFailure(error, spec: preferences.hotkey)
         }
     }
 
@@ -105,6 +118,7 @@ final class AppModel: NSObject, ObservableObject {
         microphone = PermissionStatus(AudioCapture.microphoneStatus)
         accessibilityTrusted = AccessibilityPermission.check()
         launchAtLogin = LaunchAtLoginStatus.current()
+        retryPendingModifierTapIfGranted()
         recheckPermissionsAfterReturn()
     }
 
@@ -120,7 +134,39 @@ final class AppModel: NSObject, ObservableObject {
                 let accessibility = AccessibilityPermission.check()
                 if self.microphone != microphone { self.microphone = microphone }
                 if self.accessibilityTrusted != accessibility { self.accessibilityTrusted = accessibility }
+                self.retryPendingModifierTapIfGranted()
             }
+        }
+    }
+
+    /// Registers a modifier tap that was chosen before Input Monitoring was granted.
+    private func retryPendingModifierTapIfGranted() {
+        let granted = InputMonitoringPermission.isGranted
+        let becameGranted = granted && !lastInputMonitoringGrant
+        guard becameGranted, let pending = pendingModifierTap else {
+            lastInputMonitoringGrant = granted
+            return
+        }
+        // Keep the edge while the recorder is open, and try again after it closes.
+        guard !isCapturingShortcut else { return }
+        lastInputMonitoringGrant = true
+        pendingModifierTap = nil
+        _ = setHotkey(pending)
+    }
+
+    private func noteShortcutRegistrationFailure(_ error: Error, spec: HotkeySpec) {
+        hotkeyError = error.localizedDescription
+        hotkeyBlockedBySystem = false
+        hotkeyNeedsInputMonitoring = false
+        guard let registration = error as? GlobalShortcut.RegistrationError else { return }
+        switch registration {
+        case .systemShortcut:
+            hotkeyBlockedBySystem = true
+        case .inputMonitoring where spec.isModifierTap:
+            hotkeyNeedsInputMonitoring = true
+            pendingModifierTap = spec
+        default:
+            break
         }
     }
 
@@ -446,17 +492,25 @@ final class AppModel: NSObject, ObservableObject {
             return false
         }
         endShortcutTest()
+        if spec.isModifierTap, !InputMonitoringPermission.isGranted {
+            if !InputMonitoringPermission.request() {
+                hotkeyBlockedBySystem = false
+                hotkeyNeedsInputMonitoring = true
+                pendingModifierTap = spec
+                hotkeyError = GlobalShortcut.RegistrationError.inputMonitoring.errorDescription
+                return false
+            }
+        }
         do {
             hotkeyBlockedBySystem = false
+            hotkeyNeedsInputMonitoring = false
             try shortcut?.replace(with: spec)
+            pendingModifierTap = nil
             preferences.hotkey = spec
             hotkeyError = nil
             return true
         } catch {
-            hotkeyError = error.localizedDescription
-            if case GlobalShortcut.RegistrationError.systemShortcut = error {
-                hotkeyBlockedBySystem = true
-            }
+            noteShortcutRegistrationFailure(error, spec: spec)
             if shortcut?.current == nil, !isCapturingShortcut { try? shortcut?.replace(with: preferences.hotkey) }
             return false
         }
@@ -467,12 +521,18 @@ final class AppModel: NSObject, ObservableObject {
     /// Tries Command–Space. The recorder cannot capture it while macOS owns it, so this preset exists.
     func useCommandSpace() { setHotkey(.commandSpace) }
 
+    /// Uses a tap of the left Option key. The second tap stops dictation.
+    func useLeftOption() { setHotkey(.leftOption) }
+
     func openKeyboardShortcutsSettings() { SystemSettingsLink.keyboardShortcuts.open() }
+
+    func openInputMonitoringSettings() { SystemSettingsLink.inputMonitoring.open() }
 
     /// Shows a recorder error, for example a reserved shortcut, without changing registration.
     func reportShortcutProblem(_ problem: HotkeySpec.Problem) {
         hotkeyError = problem.message
         hotkeyBlockedBySystem = false
+        hotkeyNeedsInputMonitoring = false
     }
 
     // MARK: Behavior
