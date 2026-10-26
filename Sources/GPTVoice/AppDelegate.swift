@@ -24,6 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         appearance = AppearanceController(preferences: model.preferences)
         statusMenu = StatusMenuController(model: model, windows: windows)
         panel = DictationPanelController(model: model)
+        SoundCue.warm()
         model.activate()
         model.refreshStatus()
         observeOtherLaunches()

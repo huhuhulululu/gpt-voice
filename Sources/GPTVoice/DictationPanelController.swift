@@ -17,6 +17,7 @@ final class DictationPanelController: NSObject {
     private var meterObserver: AnyCancellable?
     private var hideTimer: Timer?
     private var generation = 0
+    private var sizeCache: [String: NSSize] = [:]
 
     var isVisible: Bool { panel.isVisible }
     var isExiting: Bool { presentation.exiting }
@@ -60,21 +61,30 @@ final class DictationPanelController: NSObject {
             self?.update(for: phase)
         }
         meterObserver = model.$elapsed.combineLatest(model.$level).sink { [weak self] elapsed, level in
-            guard let self, self.model.phase == .recording,
+            guard let self, self.model.phase == .recording || self.model.phase == .preparing,
                   case .recording(let previous, _) = self.presentation.state, elapsed >= previous else { return }
             self.presentation.state = .recording(elapsed: elapsed, level: level)
         }
+        _ = measure(.recording(elapsed: 0, level: 0))
+        _ = measure(.working(label: "Transcribing", cancellable: true))
+        _ = measure(.success(label: "Pasted"))
         update(for: model.phase)
     }
 
     /// Called once per operation phase. Meter ticks update content without resizing or restarting timers.
     func update(for phase: DictationPhase) {
-        generation += 1
-        cancelTimer()
         if phase == .idle {
+            generation += 1
+            cancelTimer()
             hide()
             return
         }
+        if isLiveRecordingSurface(for: phase) {
+            cancelTimer()
+            return
+        }
+        generation += 1
+        cancelTimer()
         let state = DictationOverlayState(phase: phase, elapsed: model.elapsed, level: model.level,
                                          manualPasteHelpDismissed: model.preferences.manualPasteHelpDismissed)
         show(state)
@@ -88,7 +98,9 @@ final class DictationPanelController: NSObject {
 
     func dismissHelp() {
         guard presentation.state.isHelp else { return }
-        model.preferences.manualPasteHelpDismissed = true
+        if presentation.state.acknowledgesManualPasteHelp {
+            model.preferences.manualPasteHelpDismissed = true
+        }
         generation += 1
         cancelTimer()
         hide()
@@ -102,21 +114,25 @@ final class DictationPanelController: NSObject {
         panel.orderOut(nil)
         presentation.state = .hidden
         presentation.exiting = false
+        presentation.settled = true
     }
 
     private var actions: DictationOverlayActions {
-        DictationOverlayActions(stop: { [weak model] in model?.stopDictation() },
+        DictationOverlayActions(stop: { [weak model] in model?.requestStop() },
                                  cancel: { [weak model] in
                                      guard let model, model.phase.canCancel else { return }
                                      model.cancel()
                                  },
-                                 dismiss: { [weak self] in self?.dismissHelp() })
+                                 dismiss: { [weak self] in self?.dismissHelp() },
+                                 recover: { [weak model] in model?.recoverFromOverlay() })
     }
 
     @objc private func hideTimerFired(_ timer: Timer) {
         guard timer === hideTimer else { return }
         hideTimer = nil
-        if presentation.state.isHelp { model.preferences.manualPasteHelpDismissed = true }
+        if presentation.state.acknowledgesManualPasteHelp {
+            model.preferences.manualPasteHelpDismissed = true
+        }
         hide()
     }
 
@@ -125,8 +141,22 @@ final class DictationPanelController: NSObject {
         hideTimer = nil
     }
 
+    /// Preparing and recording share one pill. Do not remount or resize when the mic catches up.
+    private func isLiveRecordingSurface(for phase: DictationPhase) -> Bool {
+        switch phase {
+        case .preparing, .recording:
+            break
+        default:
+            return false
+        }
+        guard panel.isVisible, !presentation.exiting else { return false }
+        if case .recording = presentation.state { return true }
+        return false
+    }
+
     private func show(_ state: DictationOverlayState) {
-        let wasVisible = panel.isVisible
+        let onScreen = panel.isVisible
+        let wasVisible = onScreen && !presentation.exiting
         let size = measure(state)
         let mouse = NSEvent.mouseLocation
         #if DEBUG
@@ -144,20 +174,33 @@ final class DictationPanelController: NSObject {
         presentation.state = state
 
         let reduced = reduceMotion()
-        if wasVisible && !reduced {
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = timing.resize
-                context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-                panel.animator().setFrame(targetFrame, display: true)
-                panel.animator().alphaValue = 1
+        if onScreen {
+            presentation.settled = true
+            if reduced || (wasVisible && almostEqual(panel.frame.size, targetFrame.size)) {
+                panel.setFrame(targetFrame, display: true)
+                panel.alphaValue = 1
+            } else {
+                NSAnimationContext.runAnimationGroup { context in
+                    context.duration = timing.resize
+                    context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                    panel.animator().setFrame(targetFrame, display: true)
+                    panel.animator().alphaValue = 1
+                }
             }
         } else {
+            presentation.settled = reduced
             panel.setFrame(targetFrame, display: true)
-            if !wasVisible { panel.alphaValue = 0 }
+            panel.alphaValue = 0
             panel.orderFrontRegardless()
             NSAnimationContext.runAnimationGroup { context in
                 context.duration = reduced ? timing.reducedFade : timing.entrance
+                context.timingFunction = CAMediaTimingFunction(name: .easeOut)
                 panel.animator().alphaValue = 1
+            }
+            if !reduced {
+                DispatchQueue.main.async { [weak self] in
+                    self?.presentation.settled = true
+                }
             }
         }
         if let announcement = state.announcement {
@@ -167,13 +210,20 @@ final class DictationPanelController: NSObject {
         }
     }
 
+    private func almostEqual(_ lhs: NSSize, _ rhs: NSSize) -> Bool {
+        abs(lhs.width - rhs.width) < 0.5 && abs(lhs.height - rhs.height) < 0.5
+    }
+
     private func measure(_ state: DictationOverlayState) -> NSSize {
+        if let cached = sizeCache[state.transitionID] { return cached }
         let view = NSHostingView(rootView: ThemedRoot(preferences: model.preferences) {
             DictationOverlayView(state: state, actions: .preview)
         })
         view.layoutSubtreeIfNeeded()
-        let size = view.fittingSize
-        return NSSize(width: ceil(size.width), height: ceil(size.height))
+        let fitted = view.fittingSize
+        let size = NSSize(width: ceil(fitted.width), height: ceil(fitted.height))
+        sizeCache[state.transitionID] = size
+        return size
     }
 
     private func hide() {
@@ -196,5 +246,6 @@ final class DictationPanelController: NSObject {
         panel.orderOut(nil)
         presentation.state = .hidden
         presentation.exiting = false
+        presentation.settled = true
     }
 }

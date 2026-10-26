@@ -5,6 +5,7 @@ struct DictationOverlayActions {
     var stop: () -> Void
     var cancel: () -> Void
     var dismiss: () -> Void
+    var recover: () -> Void
 
-    static let preview = DictationOverlayActions(stop: {}, cancel: {}, dismiss: {})
+    static let preview = DictationOverlayActions(stop: {}, cancel: {}, dismiss: {}, recover: {})
 }

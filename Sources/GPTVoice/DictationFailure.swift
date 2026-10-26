@@ -26,6 +26,16 @@ struct DictationFailure: Equatable {
 
     var keepsAudio: Bool { recovery == .retry || recovery == .signInThenRetry }
 
+    /// Compact overlay button that runs `AppModel.recoverFromOverlay`.
+    var overlayActionTitle: String? {
+        switch recovery {
+        case .microphoneSettings: return "Open Settings"
+        case .signInThenRetry: return "Sign in"
+        case .retry: return "Retry"
+        case .none: return nil
+        }
+    }
+
     init(message: String, recovery: Recovery, overlayMessage: String = "Dictation stopped", kind: Kind = .other) {
         self.message = message
         self.recovery = recovery
@@ -70,7 +80,7 @@ struct DictationFailure: Equatable {
     init(captureError error: AudioCaptureError, audioKept: Bool) {
         switch error {
         case .microphoneDenied:
-            self.init(message: "Microphone access is off. Turn it on in System Settings, then start again.",
+            self.init(message: "Microphone access is off. Turn on GPT Voice in System Settings → Privacy & Security → Microphone, then start again.",
                       recovery: .microphoneSettings, overlayMessage: "Microphone access is off")
         case .deviceFailed where audioKept:
             self.init(message: "The microphone stopped. Select Retry to transcribe the audio recorded so far.",

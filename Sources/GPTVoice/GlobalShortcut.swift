@@ -1,14 +1,17 @@
 import Carbon.HIToolbox
+import CoreGraphics
 import Foundation
 
-/// Registers one global hotkey with Carbon `RegisterEventHotKey`.
-/// No event tap is used, so Input Monitoring permission is not needed.
+/// Registers one global shortcut.
+/// Key combinations use Carbon and do not need Input Monitoring.
+/// A modifier held by itself cannot be a Carbon hotkey, so that path listens for the hold.
 @MainActor
 final class GlobalShortcut {
     enum RegistrationError: LocalizedError, Equatable {
         case invalid(HotkeySpec.Problem)
         case conflict
         case systemShortcut(HotkeySpec)
+        case inputMonitoring
         case system(OSStatus)
 
         var errorDescription: String? {
@@ -19,6 +22,8 @@ final class GlobalShortcut {
                 return spec == .commandSpace
                     ? "Spotlight uses Command–Space. Turn off or change that shortcut in System Settings → Keyboard → Keyboard Shortcuts → Spotlight, then try again."
                     : "macOS uses this shortcut. Change it in System Settings → Keyboard → Keyboard Shortcuts, then try again."
+            case .inputMonitoring:
+                return "This shortcut needs Input Monitoring. Enable GPT Voice in System Settings → Privacy & Security → Input Monitoring. Quit and reopen GPT Voice if the shortcut still does not respond."
             case .system(let status): return "macOS could not register this shortcut (error \(status))."
             }
         }
@@ -28,13 +33,27 @@ final class GlobalShortcut {
 
     private(set) var current: HotkeySpec?
     private var currentRef: EventHotKeyRef?
+    private var holdListener: ModifierHoldListener?
     private var currentID: UInt32 = 0
     private var nextID: UInt32 = 1
     private var handlerRef: EventHandlerRef?
     private let onPress: @MainActor () -> Void
+    private let onHoldReleased: @MainActor () -> Void
+    private let onModifierHoldBegan: @MainActor () -> Void
+    private let onModifierHoldEnded: @MainActor () -> Void
+    private let onModifierHoldCancelled: @MainActor () -> Void
+    private var holdWatchToken = 0
 
-    init(onPress: @escaping @MainActor () -> Void) {
+    init(onPress: @escaping @MainActor () -> Void,
+         onHoldReleased: @escaping @MainActor () -> Void = {},
+         onModifierHoldBegan: @escaping @MainActor () -> Void = {},
+         onModifierHoldEnded: @escaping @MainActor () -> Void = {},
+         onModifierHoldCancelled: @escaping @MainActor () -> Void = {}) {
         self.onPress = onPress
+        self.onHoldReleased = onHoldReleased
+        self.onModifierHoldBegan = onModifierHoldBegan
+        self.onModifierHoldEnded = onModifierHoldEnded
+        self.onModifierHoldCancelled = onModifierHoldCancelled
         installHandler()
     }
 
@@ -47,6 +66,10 @@ final class GlobalShortcut {
     /// active when the new registration fails.
     func replace(with spec: HotkeySpec) throws {
         if let problem = spec.problem { throw RegistrationError.invalid(problem) }
+        if spec.isModifierHold {
+            try installModifierHold(spec)
+            return
+        }
         if Self.isSystemShortcutEnabled(spec) { throw RegistrationError.systemShortcut(spec) }
         if spec == current, currentRef != nil { return }
 
@@ -74,13 +97,34 @@ final class GlobalShortcut {
         currentRef = ref
         currentID = id
         current = spec
+        holdListener?.stop()
+        holdListener = nil
     }
 
     /// Removes the active shortcut.
     func unregister() {
+        holdWatchToken += 1
         if let currentRef { UnregisterEventHotKey(currentRef) }
         currentRef = nil
+        holdListener?.stop()
+        holdListener = nil
         current = nil
+    }
+
+    /// Listens for a lone modifier hold. The previous shortcut stays until this succeeds.
+    private func installModifierHold(_ spec: HotkeySpec) throws {
+        if spec == current, holdListener != nil { return }
+        guard InputMonitoringPermission.isGranted else { throw RegistrationError.inputMonitoring }
+        let listener = ModifierHoldListener(keyCode: spec.keyCode, onBegan: onModifierHoldBegan,
+                                            onEnded: onModifierHoldEnded, onCancelled: onModifierHoldCancelled)
+        guard listener.start() else { throw RegistrationError.inputMonitoring }
+        if let currentRef {
+            UnregisterEventHotKey(currentRef)
+            self.currentRef = nil
+        }
+        holdListener?.stop()
+        holdListener = listener
+        current = spec
     }
 
     private func restore(_ spec: HotkeySpec) {
@@ -94,6 +138,38 @@ final class GlobalShortcut {
     fileprivate func handlePress(id: UInt32) {
         guard id == currentID, currentRef != nil else { return }
         onPress()
+        watchCombinationHold()
+    }
+
+    /// A tap keeps toggle behavior. A key that stays down is a hold; release stops recording.
+    private func watchCombinationHold() {
+        guard let spec = current, !spec.isModifierHold else { return }
+        holdWatchToken += 1
+        let token = holdWatchToken
+        let keyCode = CGKeyCode(spec.keyCode)
+        DispatchQueue.main.asyncAfter(deadline: .now() + CombinationHoldWatch.grace) { [weak self] in
+            guard let self, token == self.holdWatchToken else { return }
+            switch CombinationHoldWatch.afterGrace(keyStillDown: CGEventSource.keyState(.combinedSessionState, key: keyCode)) {
+            case .beginHold:
+                self.pollCombinationHold(token: token, keyCode: keyCode)
+            case .treatAsTap, .finishHold, .ignore:
+                break
+            }
+        }
+    }
+
+    private func pollCombinationHold(token: Int, keyCode: CGKeyCode) {
+        guard token == holdWatchToken else { return }
+        switch CombinationHoldWatch.whileHolding(keyStillDown: CGEventSource.keyState(.combinedSessionState, key: keyCode)) {
+        case .finishHold:
+            onHoldReleased()
+        case .ignore:
+            DispatchQueue.main.asyncAfter(deadline: .now() + CombinationHoldWatch.poll) { [weak self] in
+                self?.pollCombinationHold(token: token, keyCode: keyCode)
+            }
+        case .treatAsTap, .beginHold:
+            break
+        }
     }
 
     static func isSystemShortcutEnabled(_ spec: HotkeySpec) -> Bool {

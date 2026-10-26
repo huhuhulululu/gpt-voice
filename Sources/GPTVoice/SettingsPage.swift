@@ -4,8 +4,8 @@ enum SettingsPage: String, CaseIterable, Identifiable {
     case home
     case history
     case shortcuts
-    case appearance
     case preferences
+    case appearance
     case privacy
 
     var id: String { rawValue }
@@ -15,8 +15,8 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .home: return "Home"
         case .history: return "History"
         case .shortcuts: return "Shortcut"
+        case .preferences: return "Paste & behavior"
         case .appearance: return "Appearance"
-        case .preferences: return "Preferences"
         case .privacy: return "Privacy"
         }
     }
@@ -26,17 +26,19 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .home: return "house"
         case .history: return "clock.arrow.circlepath"
         case .shortcuts: return "command"
+        case .preferences: return "doc.on.clipboard"
         case .appearance: return "circle.lefthalf.filled"
-        case .preferences: return "slider.horizontal.3"
         case .privacy: return "hand.raised"
         }
     }
 
     /// A subtitle only where the title alone does not explain the page.
+    /// Shortcut uses the live hotkey instruction from SettingsView instead.
     var intro: String? {
         switch self {
-        case .shortcuts: return "Press it once to start dictation. Press it again to stop."
-        case .home, .history, .appearance, .preferences, .privacy: return nil
+        case .preferences: return "Automatic paste, sound cues, and login."
+        case .privacy: return "Microphone, Accessibility, Input Monitoring, and what this app stores."
+        case .home, .history, .shortcuts, .appearance: return nil
         }
     }
 }

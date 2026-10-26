@@ -22,7 +22,10 @@ struct ShortcutTestRow: View {
                         .accessibilityLabel("Test shortcut")
                 }
             case .listening:
-                StatusRow(tone: .working, symbol: "", title: "Press \(preferences.hotkey.displayLabel)",
+                StatusRow(tone: .working, symbol: "",
+                          title: preferences.hotkey.isModifierHold
+                            ? "Hold \(preferences.hotkey.displayLabel)"
+                            : "Press \(preferences.hotkey.displayLabel)",
                           detail: "Microphone off") {
                     Button("Cancel") { model.endShortcutTest() }
                         .buttonStyle(AppButtonStyle(kind: .quiet, small: true))
@@ -38,6 +41,9 @@ struct ShortcutTestRow: View {
                           title: "Cannot test the shortcut", detail: reason) {
                     if model.hotkeyBlockedBySystem {
                         Button("Keyboard settings") { model.openKeyboardShortcutsSettings() }
+                            .buttonStyle(AppButtonStyle(kind: .secondary, showsArrow: true, small: true))
+                    } else if model.hotkeyNeedsInputMonitoring {
+                        Button("Input Monitoring settings") { model.openInputMonitoringSettings() }
                             .buttonStyle(AppButtonStyle(kind: .secondary, showsArrow: true, small: true))
                     }
                     Button("Done") { model.endShortcutTest() }

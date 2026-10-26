@@ -32,8 +32,16 @@ Quit and reopen the app after macOS applies the change.
 For repeated local builds, use the same valid signing certificate. An ad hoc signature changes with the executable.
 Do not reset all privacy permissions or disable macOS protections.
 
-Paste can fall back to copy if the destination app, focus, or clipboard changes during a recording.
+After you reinstall a Developer ID build, or replace GPT Voice with a newly signed copy, macOS often keeps the old Accessibility grant against the previous signature. The switch can stay on while automatic paste silently fails.
+In **System Settings → Privacy & Security → Accessibility**, turn GPT Voice off and on again, or select the old entry, remove it with −, then add `/Applications/GPT Voice.app` with +.
+Quit and reopen GPT Voice after macOS applies the change.
+The same steps are in **Settings → Home** and **Privacy** under **Paste not working after an update?** (or **Already turned on?** when Accessibility still looks missing). History marks those results **Copied · paste failed**.
+
+After a successful automatic paste, GPT Voice restores the previous clipboard. The transcript is not left sitting there for the next Command–V.
+Turn **Paste automatically** off if you want the text to stay on the clipboard.
+Paste can fall back to copy if the destination app, Accessibility, or clipboard changes during a recording.
 This protects newer clipboard content and avoids sending text to the wrong app.
+History records `pasted` on success, or `copied` with a `reason` (`automaticPasteOff`, `accessibilityMissing`, `targetChanged`, `noTarget`, `injectionFailed`) when automatic paste is skipped.
 Use **Copy Last Transcript** from the menu bar to recover the last result.
 
 ## Shortcut
@@ -42,6 +50,10 @@ Use **Settings → Shortcut → Test** to check receipt without recording.
 Command–Space often belongs to Spotlight or another app.
 Change that competing shortcut, or select a different shortcut in GPT Voice.
 The default is Control–Option–Space.
+
+Hold one modifier key, such as Left Option, to record. Let go and the transcript is pasted.
+A quick tap does nothing. The microphone opens after a brief hold, so Option can still be used with other keys.
+That shortcut needs Input Monitoring. Enable GPT Voice in System Settings → Privacy & Security → Input Monitoring, then quit and reopen the app if the hold does not respond.
 
 ## Download and installation
 
@@ -65,8 +77,9 @@ Check permission behavior in the actual installed app as well.
 
 Successful transcriptions appear in **Settings → History**, newest first.
 Copy an entry, delete one entry, or use **Clear all**. Deletion requires confirmation.
-The app saves local dates and times. It shows the destination name when paste keystrokes were sent to a known app.
-A manual paste cannot be tracked.
+The app saves local dates and times. Pasted rows show **Pasted into** the destination app when it is known.
+Copied rows show why automatic paste was skipped (`paste off`, `Accessibility off`, `app changed`, `no target`, or `paste failed`) without storing tokens or other secrets.
+A manual Command–V cannot be tracked after the fact.
 
 If History reports a save error, keep GPT Voice open and select **Try again**.
 An unreadable history file is kept intact. GPT Voice does not replace it with an empty history.

@@ -51,6 +51,27 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         let status = NSMenuItem(title: model.statusText, action: nil, keyEquivalent: "")
         status.isEnabled = false
         menu.addItem(status)
+        if let error = model.hotkeyError {
+            let problem = NSMenuItem(title: error, action: nil, keyEquivalent: "")
+            problem.isEnabled = false
+            menu.addItem(problem)
+            if model.hotkeyNeedsInputMonitoring {
+                menu.addItem(item("Input Monitoring Settings…", #selector(openInputMonitoring), enabled: true))
+            }
+        }
+        if case .failed(let failure) = model.phase {
+            switch failure.recovery {
+            case .microphoneSettings:
+                menu.addItem(item("Microphone Settings…", #selector(openMicrophone), enabled: true))
+            case .signInThenRetry:
+                menu.addItem(item("Sign In to ChatGPT…", #selector(signIn), enabled: true))
+            case .retry, .none:
+                break
+            }
+        } else if case .finished(.copied(let reason)) = model.phase,
+                  reason == .accessibilityMissing || reason == .injectionFailed {
+            menu.addItem(item("Accessibility Settings…", #selector(openAccessibility), enabled: true))
+        }
         menu.addItem(.separator())
 
         let recording = model.phase == .recording
@@ -97,6 +118,10 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     @objc private func pasteLast() { model.pasteLastTranscript() }
     @objc private func copyLast() { model.copyLastTranscript() }
     @objc private func showSettings() { windows.showSettings() }
+    @objc private func openInputMonitoring() { model.openInputMonitoringSettings() }
+    @objc private func openMicrophone() { model.openMicrophoneSettings() }
+    @objc private func openAccessibility() { model.openAccessibilitySettings() }
+    @objc private func signIn() { model.signIn() }
     @objc private func showOnboarding() { windows.showOnboarding() }
     @objc private func quit() { NSApp.terminate(nil) }
 }

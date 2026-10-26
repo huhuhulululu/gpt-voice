@@ -6,6 +6,26 @@ import XCTest
 
 final class OverlayLifecycleTests: XCTestCase {
     @MainActor
+    func testPreparingShowsTheRecordingPillAndRecordingDoesNotRemount() async throws {
+        let fixture = Fixture()
+        defer { fixture.cleanup() }
+        fixture.controller.update(for: .preparing)
+        guard case .recording = fixture.controller.displayedState else {
+            return XCTFail("Preparing should show the recording pill")
+        }
+        XCTAssertTrue(fixture.controller.isVisible)
+        let frame = fixture.controller.targetFrame
+
+        fixture.controller.update(for: .recording)
+        guard case .recording = fixture.controller.displayedState else {
+            return XCTFail("Recording should keep the same pill")
+        }
+        XCTAssertEqual(fixture.controller.targetFrame, frame)
+        XCTAssertTrue(fixture.controller.isVisible)
+        XCTAssertFalse(fixture.controller.isExiting)
+    }
+
+    @MainActor
     func testNoSpeechKeepsItsContentDuringFadeThenDisappears() async throws {
         let fixture = Fixture()
         defer { fixture.cleanup() }
@@ -47,7 +67,7 @@ final class OverlayLifecycleTests: XCTestCase {
         fixture.controller.update(for: .finished(.copied(.accessibilityMissing)))
 
         XCTAssertTrue(AppPreferences(defaults: fixture.defaults).manualPasteHelpDismissed)
-        XCTAssertEqual(fixture.controller.displayedState, .message(label: "Press ⌘V to paste", kind: .info))
+        XCTAssertEqual(fixture.controller.displayedState, .message(label: "Press ⌘V · Accessibility off", kind: .info))
         try await waitUntil { !fixture.controller.isVisible }
     }
 
@@ -64,6 +84,27 @@ final class OverlayLifecycleTests: XCTestCase {
         fixture.controller.update(for: .finished(.copied(.accessibilityMissing)))
         try await waitUntil { !fixture.controller.isVisible }
         XCTAssertTrue(fixture.model.preferences.manualPasteHelpDismissed)
+    }
+
+    @MainActor
+    func testInjectionFailureShowsAccessibilityRecoveryHelp() async throws {
+        let fixture = Fixture()
+        defer { fixture.cleanup() }
+        fixture.controller.update(for: .finished(.copied(.injectionFailed)))
+        guard case .notice(let notice) = fixture.controller.displayedState else {
+            return XCTFail("Injection failure should show the Accessibility recovery card")
+        }
+        XCTAssertEqual(notice.actionTitle, "Open Accessibility")
+        XCTAssertTrue(notice.message.contains("Developer ID"))
+        XCTAssertTrue(fixture.controller.displayedState.isHelp)
+        XCTAssertFalse(fixture.controller.displayedState.acknowledgesManualPasteHelp)
+
+        try await waitUntil { !fixture.controller.isVisible }
+        XCTAssertFalse(fixture.model.preferences.manualPasteHelpDismissed)
+
+        fixture.controller.update(for: .finished(.copied(.accessibilityMissing)))
+        XCTAssertTrue(fixture.controller.displayedState.isHelp)
+        XCTAssertTrue(fixture.controller.displayedState.acknowledgesManualPasteHelp)
     }
 
     @MainActor

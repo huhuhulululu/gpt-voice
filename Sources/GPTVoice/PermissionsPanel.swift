@@ -18,9 +18,13 @@ struct PermissionsPanel: View {
             MicrophoneCard(model: model, prominent: prominent)
             RowDivider()
             AccessibilityCard(model: model, offersManualPaste: offersManualPaste)
+            if model.hotkeyNeedsInputMonitoring || model.preferences.hotkey.isModifierHold {
+                RowDivider()
+                InputMonitoringCard(model: model)
+            }
         }
     }
 
     /// Secondary detail shown behind a disclosure wherever permissions appear.
-    static let details = "The microphone records only between your two shortcut presses. Accessibility lets the app press ⌘V in the app you were using. It never presses Return. macOS asks you to confirm each permission. This app cannot turn them on for you."
+    static let details = "The microphone records only while you hold the shortcut, or between a tap and a second press. Accessibility lets the app insert or paste in the app you were using. It never presses Return. After a Developer ID reinstall, turn GPT Voice off and on in Accessibility if paste stops working. A modifier-only shortcut also needs Input Monitoring. macOS asks you to confirm each permission. This app cannot turn them on for you."
 }

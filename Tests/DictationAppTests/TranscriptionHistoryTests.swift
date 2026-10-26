@@ -11,7 +11,8 @@ final class TranscriptionHistoryTests: XCTestCase {
         let url = directory.appendingPathComponent("history.json")
         let older = HistoryEntry(text: "Use URLSession, then await the retry.\nKeep the newline.",
                                  createdAt: Date(timeIntervalSince1970: 1_000), delivery: .pasted(appName: "T3 Code"))
-        let newer = HistoryEntry(text: "A copied thought.", createdAt: Date(timeIntervalSince1970: 2_000), delivery: .copied)
+        let newer = HistoryEntry(text: "A copied thought.", createdAt: Date(timeIntervalSince1970: 2_000),
+                                 delivery: .copied(reason: .targetChanged))
         let history = TranscriptionHistory(fileURL: url)
         await history.append(older)
         await history.append(newer)
@@ -44,7 +45,7 @@ final class TranscriptionHistoryTests: XCTestCase {
         let history = TranscriptionHistory(fileURL: url)
         await history.waitForPendingChanges()
         XCTAssertNotNil(history.errorMessage)
-        await history.append(HistoryEntry(text: "Keep the original file.", delivery: .copied))
+        await history.append(HistoryEntry(text: "Keep the original file.", delivery: .copied(reason: .noTarget)))
         await history.clear()
         XCTAssertEqual(try Data(contentsOf: url), original)
         XCTAssertNotNil(history.errorMessage)
@@ -67,6 +68,48 @@ final class TranscriptionHistoryTests: XCTestCase {
         let restored = TranscriptionHistory(fileURL: url)
         await restored.waitForPendingChanges()
         XCTAssertEqual(restored.entries, [entry])
+    }
+
+    func testCopiedDeliveryPersistsManualReasonAndReadsLegacyEmptyCopied() throws {
+        let encoder = JSONEncoder()
+        let withReason = try JSONSerialization.jsonObject(
+            with: encoder.encode(HistoryDelivery.copied(reason: .targetChanged))
+        ) as? [String: Any]
+        XCTAssertEqual((withReason?["copied"] as? [String: Any])?["reason"] as? String, "targetChanged")
+        XCTAssertEqual((withReason?["copied"] as? [String: Any])?.count, 1)
+
+        let pasted = HistoryDelivery.pasted(appName: "Notes")
+        XCTAssertEqual(try JSONDecoder().decode(HistoryDelivery.self, from: encoder.encode(pasted)), pasted)
+
+        let legacy = Data(#"{"copied":{}}"#.utf8)
+        XCTAssertEqual(try JSONDecoder().decode(HistoryDelivery.self, from: legacy), .copied(reason: nil))
+        XCTAssertEqual(HistoryDelivery(.copied(.injectionFailed)), .copied(reason: .injectionFailed))
+        XCTAssertEqual(HistoryDelivery(.pasted(appName: "Orca")), .pasted(appName: "Orca"))
+
+        XCTAssertEqual(HistoryDelivery.pasted(appName: "Notes").historyCaption, "Pasted into Notes")
+        XCTAssertEqual(HistoryDelivery.pasted(appName: nil).historyCaption, "Pasted")
+        XCTAssertEqual(HistoryDelivery.copied(reason: .targetChanged).historyCaption, "Copied · app changed")
+        XCTAssertEqual(HistoryDelivery.copied(reason: .injectionFailed).historyCaption, "Copied · paste failed")
+        XCTAssertEqual(HistoryDelivery.copied(reason: nil).historyCaption, "Copied")
+        XCTAssertEqual(HistoryDelivery.clipboardPreserved.historyCaption, "Clipboard kept")
+        XCTAssertTrue(HistoryDelivery.copied(reason: .injectionFailed).historyGuidance?.contains("Developer ID") == true)
+
+        let secret = "sk-live-not-a-real-secret"
+        let deliveries: [HistoryDelivery] = [
+            .pasted(appName: "Notes"),
+            .copied(reason: .automaticPasteOff),
+            .copied(reason: .accessibilityMissing),
+            .copied(reason: .targetChanged),
+            .copied(reason: .noTarget),
+            .copied(reason: .injectionFailed),
+            .copied(reason: nil),
+            .clipboardPreserved
+        ]
+        for delivery in deliveries {
+            XCTAssertFalse(delivery.historyCaption.contains(secret))
+            XCTAssertFalse(delivery.historyCaption.contains("token"))
+            XCTAssertFalse((delivery.historyGuidance ?? "").contains(secret))
+        }
     }
 
     @MainActor
@@ -94,7 +137,10 @@ final class TranscriptionHistoryTests: XCTestCase {
         model.transcribeFile(URL(fileURLWithPath: "/actual.wav"))
         try await waitUntil { model.phase == .finished(.copied(.automaticPasteOff)) }
         XCTAssertEqual(history.entries.count, 1)
-        XCTAssertEqual(history.entries.first?.delivery, .copied)
+        XCTAssertEqual(history.entries.first?.delivery, .copied(reason: .automaticPasteOff))
+        let saved = try JSONSerialization.jsonObject(with: Data(contentsOf: directory.appendingPathComponent("history.json"))) as? [String: Any]
+        let first = (saved?["entries"] as? [[String: Any]])?.first?["delivery"] as? [String: Any]
+        XCTAssertEqual((first?["copied"] as? [String: Any])?["reason"] as? String, "automaticPasteOff")
         model.copyLastTranscript()
         model.copyTranscript(history.entries[0].text)
         XCTAssertEqual(clipboard.string(forType: .string), history.entries[0].text)

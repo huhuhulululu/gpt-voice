@@ -2,29 +2,44 @@ import AppKit
 import SwiftUI
 
 /// Accessibility row for automatic paste. Optional, so it never uses a warning tone.
-/// While access is missing, a disclosure covers a grant that macOS no longer matches to this build.
+/// Recovery stays visible even when macOS still reports a grant, because a Developer ID
+/// reinstall can leave a stale switch that no longer matches this build.
 struct AccessibilityCard: View {
     @ObservedObject var model: AppModel
     @ObservedObject var preferences: AppPreferences
     var offersManualPaste = false
+    var onAdjustPaste: (() -> Void)?
 
     @State private var recoveryExpanded = false
     @FocusState private var recoveryFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    init(model: AppModel, offersManualPaste: Bool = false) {
+    init(model: AppModel, offersManualPaste: Bool = false, onAdjustPaste: (() -> Void)? = nil) {
         self.model = model
         self.preferences = model.preferences
         self.offersManualPaste = offersManualPaste
+        self.onAdjustPaste = onAdjustPaste
     }
 
     var body: some View {
         if model.accessibilityTrusted {
-            StatusRow(tone: .good, symbol: "checkmark.circle.fill", title: "Accessibility",
-                      detail: preferences.automaticPaste ? "" : "Automatic paste is off.", value: "Allowed") {
-                if !preferences.automaticPaste {
-                    Button("Turn on paste") { model.setAutomaticPaste(true) }
-                        .buttonStyle(AppButtonStyle(kind: .secondary, small: true))
+            VStack(alignment: .leading, spacing: 0) {
+                StatusRow(tone: .good, symbol: "checkmark.circle.fill", title: "Accessibility",
+                          detail: trustedDetail, value: "Allowed") {
+                    if !preferences.automaticPaste {
+                        Button("Turn on paste") { model.setAutomaticPaste(true) }
+                            .buttonStyle(AppButtonStyle(kind: .secondary, small: true))
+                    }
+                    if let onAdjustPaste {
+                        Button("Paste settings") { onAdjustPaste() }
+                            .buttonStyle(AppButtonStyle(kind: .quiet, small: true))
+                    }
+                }
+                if preferences.automaticPaste {
+                    recovery(title: "Paste not working after an update?")
+                        .padding(.leading, 26)
+                        .padding(.top, -4)
+                        .padding(.bottom, 12)
                 }
             }
         } else if !preferences.automaticPaste {
@@ -32,11 +47,15 @@ struct AccessibilityCard: View {
                       detail: "Text is copied. You press ⌘V.") {
                 Button("Use automatic paste") { model.setAutomaticPaste(true) }
                     .buttonStyle(AppButtonStyle(kind: .quiet, small: true))
+                if let onAdjustPaste {
+                    Button("Paste settings") { onAdjustPaste() }
+                        .buttonStyle(AppButtonStyle(kind: .quiet, small: true))
+                }
             }
         } else {
             VStack(alignment: .leading, spacing: 0) {
                 StatusRow(tone: .neutral, symbol: "circle.dashed", title: "Accessibility",
-                          detail: "Optional. Lets the app paste for you.") {
+                          detail: "Needed to paste into the focused field. Optional if you prefer ⌘V.") {
                     Button("Allow") { model.requestAccessibility() }
                         .buttonStyle(AppButtonStyle(kind: .secondary, small: true))
                         .accessibilityLabel("Allow Accessibility")
@@ -47,7 +66,7 @@ struct AccessibilityCard: View {
                         model.refreshStatus()
                     }
                 }
-                recovery
+                recovery(title: "Already turned on?")
                     .padding(.leading, 26)
                     .padding(.top, -4)
                     .padding(.bottom, offersManualPaste ? 4 : 12)
@@ -61,8 +80,14 @@ struct AccessibilityCard: View {
         }
     }
 
+    private var trustedDetail: String {
+        preferences.automaticPaste
+            ? "Pastes into the focused field, then restores your clipboard."
+            : "Automatic paste is off. Text is copied for ⌘V."
+    }
+
     /// Same look and semantics as `InfoDisclosure`, with one action inside.
-    private var recovery: some View {
+    private func recovery(title: String) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Button {
                 recoveryExpanded.toggle()
@@ -71,7 +96,7 @@ struct AccessibilityCard: View {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 9, weight: .semibold))
                         .rotationEffect(.degrees(recoveryExpanded ? 90 : 0))
-                    Text("Already turned on?").font(AppType.caption)
+                    Text(title).font(AppType.caption)
                 }
                 .foregroundStyle(.secondary)
                 .padding(.vertical, 3)
@@ -89,7 +114,7 @@ struct AccessibilityCard: View {
 
             if recoveryExpanded {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("After an update, macOS can keep an old entry that no longer matches this app. In System Settings, remove GPT Voice with −, add this app with +, then reopen GPT Voice.")
+                    Text(AccessibilityGuidance.staleGrant)
                         .font(AppType.detail)
                         .foregroundStyle(.secondary)
                         .lineSpacing(2)

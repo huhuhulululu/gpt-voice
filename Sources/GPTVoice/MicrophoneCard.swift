@@ -13,7 +13,7 @@ struct MicrophoneCard: View {
                       value: "Allowed") { EmptyView() }
         case .notRequested:
             StatusRow(tone: .attention, symbol: "exclamationmark.circle.fill", title: "Microphone",
-                      detail: "Required to hear you.") {
+                      detail: "Required to record. Select Allow, then return here.") {
                 Button("Allow") { model.requestMicrophone() }
                     .buttonStyle(AppButtonStyle(kind: prominent ? .primary : .secondary, small: true))
                     .accessibilityLabel("Allow microphone")
@@ -21,7 +21,7 @@ struct MicrophoneCard: View {
             }
         case .denied:
             StatusRow(tone: .problem, symbol: "mic.slash.fill", title: "Microphone blocked",
-                      detail: "Turn on GPT Voice in Privacy & Security > Microphone.") {
+                      detail: "Turn on GPT Voice in System Settings → Privacy & Security → Microphone, then return here.") {
                 settingsButton
                 recheck
             }

@@ -13,7 +13,7 @@ struct OnboardingWelcomeStep: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 32) {
             OnboardingHeader(title: "Dictate into any app",
-                             summary: "Press your shortcut, speak, and press it again.")
+                             summary: "Hold your shortcut, speak, and let go to paste.")
 
             HStack(spacing: 14) {
                 KeycapsView(spec: preferences.hotkey)
@@ -24,7 +24,7 @@ struct OnboardingWelcomeStep: View {
                 DictationOverlayView(state: .recording(elapsed: 4, level: 0.5), actions: .preview)
             }
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Sample: press \(preferences.hotkey.accessibilityLabel) and the recording bar appears.")
+            .accessibilityLabel("Sample: hold \(preferences.hotkey.accessibilityLabel) and the recording bar appears.")
 
             VStack(alignment: .leading, spacing: 8) {
                 SettingsGroup {
