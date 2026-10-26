@@ -13,9 +13,9 @@ enum DictationOverlayState: Equatable {
         switch phase {
         case .idle:
             self = .hidden
-        case .preparing:
-            self = .working(label: "Starting", cancellable: true)
-        case .recording:
+        case .preparing, .recording:
+            // Show the live pill immediately. Waiting for the microphone used to
+            // flash a "Starting" state and resize the overlay on the first hold.
             self = .recording(elapsed: elapsed, level: level)
         case .transcribing:
             self = .working(label: "Transcribing", cancellable: true)

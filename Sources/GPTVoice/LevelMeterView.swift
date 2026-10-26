@@ -22,7 +22,7 @@ struct LevelMeterView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .animation(reduceMotion ? nil : .linear(duration: 0.08), value: level)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.07), value: level)
         }
         .accessibilityElement()
         .accessibilityLabel("Input level")

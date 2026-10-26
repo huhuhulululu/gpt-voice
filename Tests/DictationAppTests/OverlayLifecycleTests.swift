@@ -6,6 +6,26 @@ import XCTest
 
 final class OverlayLifecycleTests: XCTestCase {
     @MainActor
+    func testPreparingShowsTheRecordingPillAndRecordingDoesNotRemount() async throws {
+        let fixture = Fixture()
+        defer { fixture.cleanup() }
+        fixture.controller.update(for: .preparing)
+        guard case .recording = fixture.controller.displayedState else {
+            return XCTFail("Preparing should show the recording pill")
+        }
+        XCTAssertTrue(fixture.controller.isVisible)
+        let frame = fixture.controller.targetFrame
+
+        fixture.controller.update(for: .recording)
+        guard case .recording = fixture.controller.displayedState else {
+            return XCTFail("Recording should keep the same pill")
+        }
+        XCTAssertEqual(fixture.controller.targetFrame, frame)
+        XCTAssertTrue(fixture.controller.isVisible)
+        XCTAssertFalse(fixture.controller.isExiting)
+    }
+
+    @MainActor
     func testNoSpeechKeepsItsContentDuringFadeThenDisappears() async throws {
         let fixture = Fixture()
         defer { fixture.cleanup() }

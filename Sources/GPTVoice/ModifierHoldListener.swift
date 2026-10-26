@@ -107,8 +107,10 @@ final class ModifierHoldListener {
     }
 
     private func deliver(_ callback: @escaping @MainActor () -> Void) {
-        DispatchQueue.main.async {
+        if Thread.isMainThread {
             callback()
+        } else {
+            DispatchQueue.main.async { callback() }
         }
     }
 }

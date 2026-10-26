@@ -86,7 +86,7 @@ Local builds use ad hoc signing by default. Keep a stable certificate across upd
 
 **Can I use Command–Space?** Yes, if Spotlight and other apps release that shortcut. The app checks conflicts before saving it.
 
-**Why does Accessibility still show as missing?** A changed local signature can invalidate an old grant. See [troubleshooting](docs/TROUBLESHOOTING.md).
+**Why does Accessibility still show as missing?** A changed signature, including a Developer ID reinstall, can invalidate an old grant. See [troubleshooting](docs/TROUBLESHOOTING.md).
 
 ## Project
 

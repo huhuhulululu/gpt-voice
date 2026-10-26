@@ -6,12 +6,25 @@ enum SoundCue {
     case failure
 
     func play() {
-        let name: String
-        switch self {
-        case .start: name = "Tink"
-        case .stop: name = "Pop"
-        case .failure: name = "Basso"
+        Self.sound(for: self)?.play()
+    }
+
+    /// Loads the system sounds once so the first hold does not hit disk.
+    static func warm() {
+        _ = startSound
+        _ = stopSound
+        _ = failureSound
+    }
+
+    private static let startSound = NSSound(named: NSSound.Name("Tink"))
+    private static let stopSound = NSSound(named: NSSound.Name("Pop"))
+    private static let failureSound = NSSound(named: NSSound.Name("Basso"))
+
+    private static func sound(for cue: SoundCue) -> NSSound? {
+        switch cue {
+        case .start: return startSound
+        case .stop: return stopSound
+        case .failure: return failureSound
         }
-        NSSound(named: NSSound.Name(name))?.play()
     }
 }

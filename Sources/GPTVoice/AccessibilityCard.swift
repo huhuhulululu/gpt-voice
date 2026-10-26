@@ -89,7 +89,7 @@ struct AccessibilityCard: View {
 
             if recoveryExpanded {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("After an update, macOS can keep an old entry that no longer matches this app. In System Settings, remove GPT Voice with −, add this app with +, then reopen GPT Voice.")
+                    Text("After an update, a Developer ID reinstall, or a new signature, macOS can keep an old entry that no longer matches this app. In System Settings → Privacy & Security → Accessibility, turn GPT Voice off and on, or remove it with − and add /Applications/GPT Voice.app. Then reopen GPT Voice.")
                         .font(AppType.detail)
                         .foregroundStyle(.secondary)
                         .lineSpacing(2)

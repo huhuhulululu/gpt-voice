@@ -15,17 +15,27 @@ struct DictationPanelView: View {
                     .transition(OverlayContentTransition.transition(reduceMotion: reduceMotion))
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .animation(.easeOut(duration: reduceMotion ? timing.reducedFade : timing.resize),
+            .animation(AppMotion.overlay(reduceMotion, duration: timing.resize, reduced: timing.reducedFade),
                        value: presentation.state.transitionID)
-            .blur(radius: presentation.exiting && !reduceMotion ? 2.5 : 0)
-            .animation(.easeOut(duration: reduceMotion ? timing.reducedFade : timing.exit),
-                       value: presentation.exiting)
+            .scaleEffect(surfaceScale)
+            .animation(AppMotion.overlay(reduceMotion, duration: scaleDuration, reduced: timing.reducedFade),
+                       value: surfaceScale)
             .modifier(OverlaySurface(shape: RoundedRectangle(cornerRadius: presentation.state.isHelp ? 14 : 20,
                                                               style: .continuous)))
         }
         .ignoresSafeArea()
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Dictation status")
+    }
+
+    private var surfaceScale: CGFloat {
+        if reduceMotion { return 1 }
+        if presentation.exiting { return AppMotion.overlayExitScale }
+        return presentation.settled ? 1 : AppMotion.overlayEntranceScale
+    }
+
+    private var scaleDuration: TimeInterval {
+        presentation.exiting ? timing.exit : timing.entrance
     }
 
     @ViewBuilder private var content: some View {

@@ -1,11 +1,11 @@
 import Foundation
 
 struct OverlayTiming {
-    var resize: TimeInterval = 0.24
-    var entrance: TimeInterval = 0.16
-    var exit: TimeInterval = 0.18
-    var reducedFade: TimeInterval = 0.1
-    var success: TimeInterval = 1.6
+    var resize: TimeInterval = 0.18
+    var entrance: TimeInterval = 0.18
+    var exit: TimeInterval = 0.14
+    var reducedFade: TimeInterval = 0.08
+    var success: TimeInterval = 1.4
     var noSpeech: TimeInterval = 2
     var warning: TimeInterval = 3
     var pasteHint: TimeInterval = 3

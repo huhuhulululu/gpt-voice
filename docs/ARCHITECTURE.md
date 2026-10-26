@@ -24,9 +24,8 @@ The service route is `https://chatgpt.com/backend-api/transcribe`.
 It is private, undocumented for this use, and can change.
 The project does not guarantee access on every plan or for every account.
 
-The recording pill uses short fades and animated width changes.
-Reduce Motion removes the blur and resize motion.
-Result notices disappear automatically. Recovery actions stay in the menu bar.
+The recording pill appears as soon as a hold is accepted, then uses a short fade and a 0.96–1.0 scale on entrance. Width changes ease out. Dismiss uses a fade and a slight scale-down.
+Reduce Motion keeps a short fade and snaps the size. Result notices disappear automatically. Recovery actions stay in the menu bar.
 
 ## Local history
 

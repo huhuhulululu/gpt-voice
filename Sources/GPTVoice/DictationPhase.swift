@@ -29,8 +29,7 @@ enum DictationPhase: Equatable {
     var statusText: String {
         switch self {
         case .idle: return "Ready"
-        case .preparing: return "Getting ready…"
-        case .recording: return "Listening…"
+        case .preparing, .recording: return "Listening…"
         case .transcribing: return "Transcribing…"
         case .pasting: return "Pasting…"
         case .finished(let outcome): return outcome.message

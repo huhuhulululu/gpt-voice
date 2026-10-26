@@ -52,11 +52,9 @@ struct PracticeConsole: View {
 
     @ViewBuilder private var actionArea: some View {
         switch sessionPhase {
-        case .preparing:
-            StatusRow(tone: .working, symbol: "", title: "Starting the microphone") { cancelButton }
-        case .recording:
+        case .preparing, .recording:
             HStack(spacing: 10) {
-                Circle().fill(AppPalette.recording).frame(width: 7, height: 7).accessibilityHidden(true)
+                RecordingDot().accessibilityHidden(true)
                 Text("Listening").font(AppType.rowTitle)
                 Text(DictationOverlayState.format(model.elapsed))
                     .font(AppType.timer)
@@ -66,7 +64,7 @@ struct PracticeConsole: View {
                 LevelMeterView(level: model.level).frame(width: 44, height: 16)
                 Spacer(minLength: 8)
                 cancelButton
-                Button("Stop") { model.stopDictation() }
+                Button("Stop") { model.requestStop() }
                     .buttonStyle(AppButtonStyle(kind: .primary, small: true))
             }
             .padding(.vertical, 12)

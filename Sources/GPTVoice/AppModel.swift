@@ -48,6 +48,8 @@ final class AppModel: NSObject, ObservableObject {
     private var modifierHoldOwnsSession = false
     /// The key was released while the microphone was still starting.
     private var stopModifierHoldWhenRecording = false
+    /// Release already played its cue. The later stop must not click again.
+    private var didPlayReleaseCue = false
     /// Chosen modifier hold waiting for Input Monitoring. Applied once the grant appears.
     private var pendingModifierHold: HotkeySpec?
     private var lastInputMonitoringGrant = InputMonitoringPermission.isGranted
@@ -231,10 +233,15 @@ final class AppModel: NSObject, ObservableObject {
         guard canStart, !isCapturingShortcut else { return }
         isPracticeSession = practice
         if practice { practiceTranscript = nil }
-        refreshStatus()
+        // Stay on the cached sign-in and permission flags. A full refresh reads
+        // auth.json and can wait on Accessibility, which delays the overlay.
         guard connection.isUsable else {
             fail(DictationFailure(message: "Sign in with ChatGPT in Settings, then start dictation.", recovery: .none,
                                   overlayMessage: "Sign in to ChatGPT"))
+            return
+        }
+        if microphone == .denied || microphone == .restricted {
+            fail(DictationFailure(captureError: .microphoneDenied, audioKept: false))
             return
         }
         discardFailedAudio()
@@ -242,6 +249,7 @@ final class AppModel: NSObject, ObservableObject {
         let current = generation
         if !practice { paste.noteIntendedTarget() }
         phase = .preparing
+        playStartCue()
         operation = Task {
             await paste.waitForLease()
             guard current == generation else { return }
@@ -262,7 +270,6 @@ final class AppModel: NSObject, ObservableObject {
             microphone = .granted
             phase = .recording
             startMeter()
-            cue(.start)
             if stopModifierHoldWhenRecording {
                 stopModifierHoldWhenRecording = false
                 stopDictation()
@@ -293,6 +300,7 @@ final class AppModel: NSObject, ObservableObject {
             stopDictation()
         } else if phase == .preparing {
             stopModifierHoldWhenRecording = true
+            playReleaseCue()
         }
     }
 
@@ -301,12 +309,24 @@ final class AppModel: NSObject, ObservableObject {
         guard modifierHoldOwnsSession else { return }
         modifierHoldOwnsSession = false
         stopModifierHoldWhenRecording = false
+        didPlayReleaseCue = false
         if phase == .preparing || phase == .recording { cancel() }
     }
 
     func stopDictation() {
         guard phase == .recording, let url = try? audio.stop() else { return }
+        playReleaseCue()
         captureEnded(url: url)
+    }
+
+    /// Stop from the overlay or practice console. Works while the microphone is still opening.
+    func requestStop() {
+        if phase == .recording {
+            stopDictation()
+        } else if phase == .preparing {
+            stopModifierHoldWhenRecording = true
+            playReleaseCue()
+        }
     }
 
     /// Cancels recording or transcription. Deletes the audio. A stale result never pastes.
@@ -314,6 +334,7 @@ final class AppModel: NSObject, ObservableObject {
     func cancel() {
         modifierHoldOwnsSession = false
         stopModifierHoldWhenRecording = false
+        didPlayReleaseCue = false
         let pasting = phase == .pasting
         if !pasting { generation += 1 }
         operation?.cancel()
@@ -337,7 +358,7 @@ final class AppModel: NSObject, ObservableObject {
         generation += 1
         let current = generation
         if !isPracticeSession { paste.noteIntendedTarget() }
-        phase = .preparing
+        phase = .transcribing
         operation = Task {
             await paste.waitForLease()
             guard current == generation else { return }
@@ -379,12 +400,11 @@ final class AppModel: NSObject, ObservableObject {
         guard canStart else { return }
         isPracticeSession = forPractice
         if forPractice { practiceTranscript = nil }
-        refreshStatus()
         discardFailedAudio()
         generation += 1
         let current = generation
         if !forPractice { paste.noteIntendedTarget() }
-        phase = .preparing
+        phase = .transcribing
         operation = Task {
             await paste.waitForLease()
             guard current == generation else { return }
@@ -533,6 +553,7 @@ final class AppModel: NSObject, ObservableObject {
             stopDictation()
         } else if phase == .preparing {
             stopModifierHoldWhenRecording = true
+            playReleaseCue()
         }
     }
 
@@ -635,7 +656,7 @@ final class AppModel: NSObject, ObservableObject {
 
     private func captureEnded(url: URL) {
         stopMeter()
-        cue(.stop)
+        playReleaseCue()
         generation += 1
         transcribe(url)
     }
@@ -688,6 +709,7 @@ final class AppModel: NSObject, ObservableObject {
     private func fail(_ failure: DictationFailure) {
         modifierHoldOwnsSession = false
         stopModifierHoldWhenRecording = false
+        didPlayReleaseCue = false
         operation = nil
         if !failure.keepsAudio { paste.endSession() }
         phase = .failed(failure)
@@ -701,6 +723,17 @@ final class AppModel: NSObject, ObservableObject {
 
     private func cue(_ sound: SoundCue) {
         if preferences.soundCues { sound.play() }
+    }
+
+    private func playStartCue() {
+        didPlayReleaseCue = false
+        cue(.start)
+    }
+
+    private func playReleaseCue() {
+        guard !didPlayReleaseCue else { return }
+        didPlayReleaseCue = true
+        cue(.stop)
     }
 
     private func startMeter() {

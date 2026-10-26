@@ -8,8 +8,7 @@ struct OverlayCapsuleContent: View {
     @ViewBuilder var body: some View {
         switch state {
         case .recording(let elapsed, let level):
-            Circle().fill(AppPalette.recording).frame(width: 7, height: 7)
-                .accessibilityLabel("Recording")
+            RecordingDot()
             LevelMeterView(level: level).frame(width: 36, height: 18)
             Text(DictationOverlayState.format(elapsed))
                 .font(AppType.timer)

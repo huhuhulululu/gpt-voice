@@ -32,6 +32,10 @@ Quit and reopen the app after macOS applies the change.
 For repeated local builds, use the same valid signing certificate. An ad hoc signature changes with the executable.
 Do not reset all privacy permissions or disable macOS protections.
 
+After you reinstall a Developer ID build, or replace GPT Voice with a newly signed copy, macOS often keeps the old Accessibility grant against the previous signature. The switch can stay on while automatic paste silently fails.
+In **System Settings → Privacy & Security → Accessibility**, turn GPT Voice off and on again, or select the old entry, remove it with −, then add `/Applications/GPT Voice.app` with +.
+Quit and reopen GPT Voice after macOS applies the change.
+
 After a successful automatic paste, GPT Voice restores the previous clipboard. The transcript is not left sitting there for the next Command–V.
 Turn **Paste automatically** off if you want the text to stay on the clipboard.
 Paste can fall back to copy if the destination app, Accessibility, or clipboard changes during a recording.
