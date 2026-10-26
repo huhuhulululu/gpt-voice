@@ -10,8 +10,57 @@ final class TranscriptionPreferencesTests: XCTestCase {
         XCTAssertEqual(preferences.transcriptionProvider, .codex)
         XCTAssertTrue(preferences.deterministicCleanup)
         XCTAssertFalse(preferences.chatCleanup)
+        XCTAssertFalse(preferences.soundCues)
+        XCTAssertFalse(preferences.hapticCues)
         XCTAssertEqual(preferences.openAIModel, "whisper-1")
         XCTAssertEqual(AppBrand.displayName, "Goice")
+    }
+
+    func testGroqPresetFillsCompatibleURLAndModel() {
+        let preferences = AppPreferences(defaults: UserDefaults(suiteName: "goice-groq-\(UUID().uuidString)")!)
+        let model = AppModel(preferences: preferences,
+                             history: TranscriptionHistory(fileURL: FileManager.default.temporaryDirectory.appendingPathComponent("gpt-voice-test-\(UUID().uuidString)/history.json")),
+                             secrets: MemorySecretStore()) { _ in "ok" }
+        defer { model.cleanup() }
+        model.applyGroqPreset()
+        XCTAssertEqual(preferences.transcriptionProvider, .openAICompatible)
+        XCTAssertEqual(preferences.openAIBaseURL, "https://api.groq.com/openai/v1")
+        XCTAssertEqual(preferences.openAIModel, "whisper-large-v3")
+        XCTAssertEqual(try? OpenAICompatibleURL.transcriptions(from: preferences.openAIBaseURL).absoluteString,
+                       "https://api.groq.com/openai/v1/audio/transcriptions")
+        XCTAssertEqual(preferences.transcriptionLanguage, "zh")
+        XCTAssertEqual(preferences.transcriptionHostTitle, "Groq")
+    }
+
+    func testGroqPresetKeepsAnExistingLanguageHint() {
+        let preferences = AppPreferences(defaults: UserDefaults(suiteName: "goice-groq-lang-\(UUID().uuidString)")!)
+        preferences.transcriptionLanguage = "en"
+        let model = AppModel(preferences: preferences,
+                             history: TranscriptionHistory(fileURL: FileManager.default.temporaryDirectory.appendingPathComponent("gpt-voice-test-\(UUID().uuidString)/history.json")),
+                             secrets: MemorySecretStore()) { _ in "ok" }
+        defer { model.cleanup() }
+        model.applyGroqPreset()
+        XCTAssertEqual(preferences.transcriptionLanguage, "en")
+        XCTAssertEqual(preferences.openAIModel, "whisper-large-v3")
+    }
+
+    func testUnconfiguredOpenAICompatibleOpensTranscriptionSettings() {
+        let preferences = AppPreferences(defaults: UserDefaults(suiteName: "goice-recover-\(UUID().uuidString)")!)
+        preferences.transcriptionProvider = .openAICompatible
+        preferences.openAIBaseURL = "https://api.groq.com/openai/v1"
+        let model = AppModel(preferences: preferences,
+                             history: TranscriptionHistory(fileURL: FileManager.default.temporaryDirectory.appendingPathComponent("gpt-voice-test-\(UUID().uuidString)/history.json")),
+                             secrets: MemorySecretStore()) { _ in "ok" }
+        defer { model.cleanup() }
+        model.refreshStatus()
+        model.startDictation()
+        guard case .failed(let failure) = model.phase else {
+            return XCTFail("Unconfigured Groq should fail before capture")
+        }
+        XCTAssertEqual(failure.recovery, .transcriptionSettings)
+        XCTAssertEqual(failure.overlayActionTitle, "Open Settings")
+        model.recoverFromOverlay()
+        XCTAssertEqual(model.preferredSettingsPage, .transcription)
     }
 
     func testOpenAIReadyRequiresKeyUnlessLocal() {
