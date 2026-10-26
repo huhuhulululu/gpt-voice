@@ -29,6 +29,23 @@ enum HistoryDelivery: Equatable, Sendable {
         }
     }
 
+    /// Compact row mark. Color is never the only cue — the caption still names the result.
+    var scanSymbol: String {
+        switch self {
+        case .pasted:
+            return "arrow.uturn.forward"
+        case .copied(let reason):
+            switch reason {
+            case .accessibilityMissing, .injectionFailed:
+                return "exclamationmark.circle"
+            default:
+                return "doc.on.clipboard"
+            }
+        case .clipboardPreserved:
+            return "clipboard"
+        }
+    }
+
     /// Extra guidance for the row tooltip. Never includes transcript text or secrets.
     var historyGuidance: String? {
         switch self {

@@ -92,6 +92,11 @@ final class TranscriptionHistoryTests: XCTestCase {
         XCTAssertEqual(HistoryDelivery.copied(reason: .injectionFailed).historyCaption, "Copied · paste failed")
         XCTAssertEqual(HistoryDelivery.copied(reason: nil).historyCaption, "Copied")
         XCTAssertEqual(HistoryDelivery.clipboardPreserved.historyCaption, "Clipboard kept")
+        XCTAssertEqual(HistoryDelivery.pasted(appName: "Notes").scanSymbol, "arrow.uturn.forward")
+        XCTAssertEqual(HistoryDelivery.copied(reason: .automaticPasteOff).scanSymbol, "doc.on.clipboard")
+        XCTAssertEqual(HistoryDelivery.copied(reason: .accessibilityMissing).scanSymbol, "exclamationmark.circle")
+        XCTAssertEqual(HistoryDelivery.copied(reason: .injectionFailed).scanSymbol, "exclamationmark.circle")
+        XCTAssertEqual(HistoryDelivery.clipboardPreserved.scanSymbol, "clipboard")
         XCTAssertTrue(HistoryDelivery.copied(reason: .injectionFailed).historyGuidance?.contains("Developer ID") == true)
 
         let secret = "sk-live-not-a-real-secret"

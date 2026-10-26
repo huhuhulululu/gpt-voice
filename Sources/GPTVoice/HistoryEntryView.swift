@@ -23,6 +23,10 @@ struct HistoryEntryView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
+                Image(systemName: entry.delivery.scanSymbol)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
                 Text(meta)
                     .font(AppType.caption)
                     .monospacedDigit()
