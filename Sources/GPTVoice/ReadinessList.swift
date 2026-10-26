@@ -43,7 +43,7 @@ struct ReadinessList: View {
                          detail: shortcutWorks ? preferences.hotkey.accessibilityLabel : (model.hotkeyError ?? "Not registered"),
                          status: shortcutWorks ? .ready : .missing) { fix(.shortcut) }
             ReadinessRow(title: automatic ? "Automatic paste" : "Manual paste",
-                         detail: automatic ? "On" : "Optional. Text is copied for ⌘V.",
+                         detail: automatic ? "Inserts into the focused field." : "Optional. Text is copied for ⌘V.",
                          status: automatic ? .ready : .optional, fixTitle: "Set up", showsDivider: false) {
                 fix(.permissions)
             }

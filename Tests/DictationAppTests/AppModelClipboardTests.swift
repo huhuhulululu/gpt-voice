@@ -133,7 +133,7 @@ final class AppModelClipboardTests: XCTestCase {
         let state = DictationOverlayState(phase: .failed(failure), elapsed: 0, level: 0)
         XCTAssertEqual(failure.overlayMessage, "Sign in to ChatGPT")
         XCTAssertEqual(failure.recovery, .signInThenRetry)
-        XCTAssertEqual(state, .message(label: "Sign in to ChatGPT", kind: .warning))
+        XCTAssertEqual(state, .message(label: "Sign in to ChatGPT", kind: .warning, actionTitle: "Sign in"))
     }
 
     @MainActor

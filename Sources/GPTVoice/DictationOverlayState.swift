@@ -6,7 +6,7 @@ enum DictationOverlayState: Equatable {
     case recording(elapsed: TimeInterval, level: Float)
     case working(label: String, cancellable: Bool)
     case success(label: String)
-    case message(label: String, kind: OverlayMessageKind)
+    case message(label: String, kind: OverlayMessageKind, actionTitle: String? = nil)
     case notice(DictationOverlayNotice)
 
     init(phase: DictationPhase, elapsed: TimeInterval, level: Float, manualPasteHelpDismissed: Bool = true) {
@@ -27,7 +27,7 @@ enum DictationOverlayState: Equatable {
             self = .success(label: "Preview ready")
         case .finished(.copied(.accessibilityMissing)) where !manualPasteHelpDismissed:
             self = .notice(DictationOverlayNotice(title: "Copied to clipboard",
-                message: "Press ⌘V to paste. Allow Accessibility in System Settings for automatic paste.",
+                message: "Press ⌘V to paste. Allow Accessibility in System Settings. After a Developer ID reinstall, turn GPT Voice off and on there if the switch already looks on.",
                 actionTitle: "Open Accessibility"))
         case .finished(.copied(.injectionFailed)):
             self = .notice(DictationOverlayNotice(title: "Copied to clipboard",
@@ -38,7 +38,8 @@ enum DictationOverlayState: Equatable {
         case .finished(.preservedNewerClipboard):
             self = .message(label: "Transcript ready · Copy from menu", kind: .info)
         case .failed(let failure):
-            self = .message(label: failure.overlayMessage, kind: failure.kind == .noSpeech ? .noSpeech : .warning)
+            self = .message(label: failure.overlayMessage, kind: failure.kind == .noSpeech ? .noSpeech : .warning,
+                           actionTitle: failure.overlayActionTitle)
         }
     }
 
@@ -49,7 +50,8 @@ enum DictationOverlayState: Equatable {
         // Transcribing and Pasting share one surface so the spinner does not remount.
         case .working: return "working"
         case .success(let label): return "success-\(label)"
-        case .message(let label, _): return "message-\(label)"
+        case .message(let label, _, let actionTitle):
+            return actionTitle.map { "message-\(label)-\($0)" } ?? "message-\(label)"
         case .notice: return "manual-paste-help"
         }
     }
@@ -61,7 +63,7 @@ enum DictationOverlayState: Equatable {
 
     var announcement: String? {
         switch self {
-        case .success(let label), .message(let label, _): return label
+        case .success(let label), .message(let label, _, _): return label
         case .notice(let notice): return "\(notice.title). \(notice.message)"
         case .hidden, .recording, .working: return nil
         }

@@ -1,3 +1,4 @@
+import DictationCore
 import XCTest
 @testable import GPTVoice
 
@@ -24,6 +25,9 @@ final class OverlayStateTests: XCTestCase {
         XCTAssertNil(timing.hold(for: .recording(elapsed: 0, level: 0)))
         XCTAssertEqual(timing.hold(for: .success(label: "Pasted")), timing.success)
         XCTAssertEqual(timing.hold(for: .message(label: "Press ⌘V to paste", kind: .info)), timing.pasteHint)
+        XCTAssertEqual(timing.hold(for: .message(label: "Sign in to ChatGPT", kind: .warning,
+                                                actionTitle: "Sign in")), timing.recoveryHint)
+        XCTAssertLessThan(timing.pasteHint, 3)
     }
 
     func testTranscribingAndPastingShareAWorkingSurface() {
@@ -62,5 +66,28 @@ final class OverlayStateTests: XCTestCase {
         XCTAssertTrue(notice.message.contains("Developer ID"))
         XCTAssertTrue(notice.message.contains("Accessibility"))
         XCTAssertFalse(notice.message.contains("sk-"))
+    }
+
+    func testFirstAccessibilityCopyMentionsReinstall() {
+        let state = DictationOverlayState(phase: .finished(.copied(.accessibilityMissing)), elapsed: 0, level: 0,
+                                          manualPasteHelpDismissed: false)
+        guard case .notice(let notice) = state else {
+            return XCTFail("First Accessibility fallback should stay a help card")
+        }
+        XCTAssertEqual(notice.actionTitle, "Open Accessibility")
+        XCTAssertTrue(notice.message.contains("Developer ID reinstall"))
+        XCTAssertTrue(notice.message.contains("off and on"))
+    }
+
+    func testPermissionFailuresOfferTheMatchingOverlayAction() {
+        let signIn = DictationFailure(transcriptionError: DictationError.signInRequired)
+        XCTAssertEqual(signIn.overlayActionTitle, "Sign in")
+        XCTAssertEqual(DictationOverlayState(phase: .failed(signIn), elapsed: 0, level: 0),
+                       .message(label: "Sign in to ChatGPT", kind: .warning, actionTitle: "Sign in"))
+
+        let microphone = DictationFailure(captureError: .microphoneDenied, audioKept: false)
+        XCTAssertEqual(microphone.overlayActionTitle, "Open Settings")
+        XCTAssertEqual(DictationOverlayState(phase: .failed(microphone), elapsed: 0, level: 0),
+                       .message(label: "Microphone access is off", kind: .warning, actionTitle: "Open Settings"))
     }
 }

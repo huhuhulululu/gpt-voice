@@ -26,6 +26,16 @@ struct DictationFailure: Equatable {
 
     var keepsAudio: Bool { recovery == .retry || recovery == .signInThenRetry }
 
+    /// Compact overlay button that runs `AppModel.recoverFromOverlay`.
+    var overlayActionTitle: String? {
+        switch recovery {
+        case .microphoneSettings: return "Open Settings"
+        case .signInThenRetry: return "Sign in"
+        case .retry: return "Retry"
+        case .none: return nil
+        }
+    }
+
     init(message: String, recovery: Recovery, overlayMessage: String = "Dictation stopped", kind: Kind = .other) {
         self.message = message
         self.recovery = recovery

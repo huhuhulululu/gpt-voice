@@ -38,7 +38,7 @@ struct OverlayCapsuleContent: View {
                 .font(AppType.control)
                 .lineLimit(1)
                 .padding(.trailing, 8)
-        case .message(let label, let kind):
+        case .message(let label, let kind, let actionTitle):
             Image(systemName: kind == .noSpeech ? "waveform.slash" :
                     kind == .warning ? "exclamationmark.circle" : "doc.on.clipboard")
                 .foregroundStyle(.secondary)
@@ -46,7 +46,11 @@ struct OverlayCapsuleContent: View {
             Text(label)
                 .font(AppType.control)
                 .lineLimit(1)
-                .padding(.trailing, 8)
+                .padding(.trailing, actionTitle == nil ? 8 : 0)
+            if let actionTitle {
+                OverlayIconButton(symbol: actionTitle == "Retry" ? "arrow.clockwise" : "arrow.up.forward.app",
+                                  label: actionTitle, prominent: true, action: actions.recover)
+            }
         case .hidden, .notice:
             EmptyView()
         }
