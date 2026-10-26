@@ -14,7 +14,7 @@
 
 # GPT Voice
 
-ChatGPT transcription in a small Mac menu bar app. Press a shortcut, speak, and put the transcript into your text field.
+ChatGPT transcription in a small Mac menu bar app. Hold a shortcut, speak, and put the transcript into your text field.
 Use it with T3 Code, Codex CLI, your editor, or another app. It never submits the text for you.
 
 I built this after moving from the Codex app to T3 Code and missing ChatGPT's dictation workflow.
@@ -47,9 +47,9 @@ If macOS shows a verification warning, ignore it and open **System Settings → 
 
 ## A small tool that stays out of the way
 
-- A configurable global shortcut. The default is **Control–Option–Space**. Hold Left Option, or another Option, Control, or Shift key, to record. The transcript is pasted when you let go.
+- A configurable global shortcut. The default is **Control–Option–Space**. Hold it to record, then release to transcribe. A short tap still starts; press again to stop. Hold Left Option, or another Option, Control, or Shift key, to record. The transcript is pasted when you let go.
 - A compact recording pill with input level, elapsed time, cancel and stop.
-- Automatic paste, or **Command–V** for manual paste.
+- Automatic paste restores your clipboard. Turn it off to keep the transcript for **Command–V**.
 - Onboarding with permission recovery and an in-app practice step.
 - System, Light and Dark themes, seven accent colors and top or bottom pill placement.
 - Optional sound cues and launch at login. Launch at login starts off.

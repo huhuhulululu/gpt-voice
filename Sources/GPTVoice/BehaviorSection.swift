@@ -14,10 +14,20 @@ struct BehaviorSection: View {
         model.launchAtLoginError != nil || model.launchAtLogin == .requiresApproval
     }
 
+    private var pasteDetail: String {
+        if !preferences.automaticPaste {
+            return "Keeps the transcript on the clipboard so you can press ⌘V."
+        }
+        if model.accessibilityTrusted {
+            return "Pastes into the focused field, then restores your clipboard."
+        }
+        return "Needs Accessibility. Until then, text is copied."
+    }
+
     var body: some View {
         SettingsGroup {
             SettingsRow(title: "Paste automatically",
-                        detail: model.accessibilityTrusted ? nil : "Needs Accessibility. Until then, text is copied.") {
+                        detail: pasteDetail) {
                 AppToggle(label: "Paste automatically",
                           isOn: Binding(get: { preferences.automaticPaste }, set: { model.setAutomaticPaste($0) }))
                     .disabled(!model.canChangeSettings)

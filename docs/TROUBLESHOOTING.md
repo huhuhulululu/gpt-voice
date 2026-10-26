@@ -32,7 +32,9 @@ Quit and reopen the app after macOS applies the change.
 For repeated local builds, use the same valid signing certificate. An ad hoc signature changes with the executable.
 Do not reset all privacy permissions or disable macOS protections.
 
-Paste can fall back to copy if the destination app, focus, or clipboard changes during a recording.
+After a successful automatic paste, GPT Voice restores the previous clipboard. The transcript is not left sitting there for the next Command–V.
+Turn **Paste automatically** off if you want the text to stay on the clipboard.
+Paste can fall back to copy if the destination app, Accessibility, or clipboard changes during a recording.
 This protects newer clipboard content and avoids sending text to the wrong app.
 Use **Copy Last Transcript** from the menu bar to recover the last result.
 

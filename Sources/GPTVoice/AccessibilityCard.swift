@@ -21,7 +21,7 @@ struct AccessibilityCard: View {
     var body: some View {
         if model.accessibilityTrusted {
             StatusRow(tone: .good, symbol: "checkmark.circle.fill", title: "Accessibility",
-                      detail: preferences.automaticPaste ? "" : "Automatic paste is off.", value: "Allowed") {
+                      detail: preferences.automaticPaste ? "Clipboard is restored after paste." : "Automatic paste is off.", value: "Allowed") {
                 if !preferences.automaticPaste {
                     Button("Turn on paste") { model.setAutomaticPaste(true) }
                         .buttonStyle(AppButtonStyle(kind: .secondary, small: true))

@@ -1,4 +1,5 @@
 import Carbon.HIToolbox
+import CoreGraphics
 import Foundation
 
 /// Registers one global shortcut.
@@ -37,15 +38,19 @@ final class GlobalShortcut {
     private var nextID: UInt32 = 1
     private var handlerRef: EventHandlerRef?
     private let onPress: @MainActor () -> Void
+    private let onHoldReleased: @MainActor () -> Void
     private let onModifierHoldBegan: @MainActor () -> Void
     private let onModifierHoldEnded: @MainActor () -> Void
     private let onModifierHoldCancelled: @MainActor () -> Void
+    private var holdWatchToken = 0
 
     init(onPress: @escaping @MainActor () -> Void,
+         onHoldReleased: @escaping @MainActor () -> Void = {},
          onModifierHoldBegan: @escaping @MainActor () -> Void = {},
          onModifierHoldEnded: @escaping @MainActor () -> Void = {},
          onModifierHoldCancelled: @escaping @MainActor () -> Void = {}) {
         self.onPress = onPress
+        self.onHoldReleased = onHoldReleased
         self.onModifierHoldBegan = onModifierHoldBegan
         self.onModifierHoldEnded = onModifierHoldEnded
         self.onModifierHoldCancelled = onModifierHoldCancelled
@@ -98,6 +103,7 @@ final class GlobalShortcut {
 
     /// Removes the active shortcut.
     func unregister() {
+        holdWatchToken += 1
         if let currentRef { UnregisterEventHotKey(currentRef) }
         currentRef = nil
         holdListener?.stop()
@@ -132,6 +138,38 @@ final class GlobalShortcut {
     fileprivate func handlePress(id: UInt32) {
         guard id == currentID, currentRef != nil else { return }
         onPress()
+        watchCombinationHold()
+    }
+
+    /// A tap keeps toggle behavior. A key that stays down is a hold; release stops recording.
+    private func watchCombinationHold() {
+        guard let spec = current, !spec.isModifierHold else { return }
+        holdWatchToken += 1
+        let token = holdWatchToken
+        let keyCode = CGKeyCode(spec.keyCode)
+        DispatchQueue.main.asyncAfter(deadline: .now() + CombinationHoldWatch.grace) { [weak self] in
+            guard let self, token == self.holdWatchToken else { return }
+            switch CombinationHoldWatch.afterGrace(keyStillDown: CGEventSource.keyState(.combinedSessionState, key: keyCode)) {
+            case .beginHold:
+                self.pollCombinationHold(token: token, keyCode: keyCode)
+            case .treatAsTap, .finishHold, .ignore:
+                break
+            }
+        }
+    }
+
+    private func pollCombinationHold(token: Int, keyCode: CGKeyCode) {
+        guard token == holdWatchToken else { return }
+        switch CombinationHoldWatch.whileHolding(keyStillDown: CGEventSource.keyState(.combinedSessionState, key: keyCode)) {
+        case .finishHold:
+            onHoldReleased()
+        case .ignore:
+            DispatchQueue.main.asyncAfter(deadline: .now() + CombinationHoldWatch.poll) { [weak self] in
+                self?.pollCombinationHold(token: token, keyCode: keyCode)
+            }
+        case .treatAsTap, .beginHold:
+            break
+        }
     }
 
     static func isSystemShortcutEnabled(_ spec: HotkeySpec) -> Bool {

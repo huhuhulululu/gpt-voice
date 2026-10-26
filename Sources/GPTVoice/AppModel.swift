@@ -56,6 +56,7 @@ final class AppModel: NSObject, ObservableObject {
 
     init(preferences: AppPreferences? = nil, pasteboard: NSPasteboard? = nil,
          history: TranscriptionHistory? = nil,
+         pasteEnvironment: PasteCoordinator.Environment = .live,
          transcribeAudio: @escaping @Sendable (URL) async throws -> String = {
              try await TranscriptionClient().transcribe(file: $0)
          }) {
@@ -63,11 +64,12 @@ final class AppModel: NSObject, ObservableObject {
         self.history = history ?? TranscriptionHistory()
         self.transcribeAudio = transcribeAudio
         audio = AudioCapture()
-        paste = PasteCoordinator(pasteboard: pasteboard ?? .general)
+        paste = PasteCoordinator(pasteboard: pasteboard ?? .general, environment: pasteEnvironment)
         super.init()
         audio.onMaximumDuration = { [weak self] url in self?.captureEnded(url: url) }
         audio.onFailure = { [weak self] error, url in self?.captureFailed(error, url: url) }
         shortcut = GlobalShortcut(onPress: { [weak self] in self?.receiveGlobalShortcut() },
+                                  onHoldReleased: { [weak self] in self?.receiveGlobalShortcutRelease() },
                                   onModifierHoldBegan: { [weak self] in self?.beginModifierHold() },
                                   onModifierHoldEnded: { [weak self] in self?.endModifierHold() },
                                   onModifierHoldCancelled: { [weak self] in self?.interruptModifierHold() })
@@ -515,6 +517,22 @@ final class AppModel: NSObject, ObservableObject {
             shortcutTestStatus = .received
         case .idle, .unavailable:
             toggleDictation()
+        }
+    }
+
+    /// Stops a recording started by holding a key-combination shortcut.
+    /// A tap never reaches here, so the second press still toggles.
+    func receiveGlobalShortcutRelease() {
+        switch shortcutTestStatus {
+        case .listening, .received:
+            return
+        case .idle, .unavailable:
+            break
+        }
+        if phase == .recording {
+            stopDictation()
+        } else if phase == .preparing {
+            stopModifierHoldWhenRecording = true
         }
     }
 
