@@ -25,8 +25,8 @@ The service route is `https://chatgpt.com/backend-api/transcribe`.
 It is private, undocumented for this use, and can change.
 The project does not guarantee access on every plan or for every account.
 
-The recording pill appears as soon as a hold is accepted, then uses a short fade and a 0.96–1.0 scale on entrance. Width changes ease out. Transcribing and Pasting share one working surface so the spinner does not remount. Dismiss uses a fade and a slight scale-down.
-Reduce Motion keeps a short fade and snaps the size. Result notices disappear automatically. Accessibility paste failures can show a recovery card that opens System Settings. The menu bar also offers Microphone, Accessibility, Input Monitoring, or Sign In when that is the current failure.
+The recording pill appears as soon as a hold is accepted, then uses a short fade and a 0.96–1.0 scale on entrance (0.16s; exit 0.11s). Width changes ease out. Transcribing and Pasting share one working surface so the spinner does not remount. Success holds for 1.15s; a Command–V hint holds for 1.8s. Dismiss uses a fade and a slight scale-down.
+Reduce Motion keeps a short fade and snaps the size. Result notices disappear automatically. Accessibility paste failures can show a recovery card that opens System Settings. A missing Groq or OpenAI-compatible key opens Settings → Transcription. The menu bar also offers Microphone, Accessibility, Input Monitoring, Sign In, or Transcription Settings when that is the current failure.
 
 ## Local history
 
