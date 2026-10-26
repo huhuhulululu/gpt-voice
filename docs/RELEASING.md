@@ -1,4 +1,4 @@
-# Releasing GPT Voice
+# Releasing Goice
 
 Build and package releases locally.
 An App Store Connect app record, TestFlight build and App Store listing are not required.
@@ -10,7 +10,7 @@ An App Store Connect app record, TestFlight build and App Store listing are not 
 3. Set `GPT_VOICE_SIGNING_IDENTITY` to the intended signing identity.
 4. Run `./scripts/build.sh --universal`.
 
-The result is `dist/GPT Voice.app`, with Apple Silicon and Intel executable slices.
+The result is `dist/Goice.app`, with Apple Silicon and Intel executable slices.
 The build enables the hardened runtime for certificate-signed builds and includes the microphone entitlement.
 It keeps the original bundle identifier for existing settings.
 
@@ -20,9 +20,9 @@ For the Developer ID distribution workflow, submit the signed app to Apple with 
 After an **Accepted** result, staple the ticket and check it:
 
 ```sh
-xcrun stapler staple "dist/GPT Voice.app"
-xcrun stapler validate "dist/GPT Voice.app"
-spctl --assess --type execute --verbose=2 "dist/GPT Voice.app"
+xcrun stapler staple "dist/Goice.app"
+xcrun stapler validate "dist/Goice.app"
+spctl --assess --type execute --verbose=2 "dist/Goice.app"
 ```
 
 ## Package the installer
@@ -42,7 +42,7 @@ Do not add Finder metadata to the app after signing. In particular, hiding its f
 `--preview` permits a local installer preview.
 
 Sign the DMG with Developer ID, submit it for notarization, and staple the accepted ticket.
-Run `xcrun stapler validate dist/GPT-Voice.dmg` before release.
+Run `xcrun stapler validate dist/Goice.dmg` before release.
 Check it with `hdiutil verify` and `spctl --assess --type open --context context:primary-signature --verbose=2`.
 
 ## Check the download experience
@@ -53,13 +53,13 @@ Check it with `hdiutil verify` and `spctl --assess --type open --context context
 - Check light and dark mode and Reduce Motion.
 - Download the uploaded asset through its public release URL and compare its SHA-256 checksum.
 - Check Gatekeeper with quarantine on the downloaded copy. Do not disable security checks.
-- Prefer a separate Mac with no earlier GPT Voice grants for a final first-install check.
+- Prefer a separate Mac with no earlier Goice grants for a final first-install check.
 
 An Intel slice can be built on Apple Silicon, but Intel execution requires a separate check.
 
 ## Publish
 
-Attach `GPT-Voice.dmg`, an app ZIP, checksums, release notes and the promo MP4 to the matching GitHub release.
+Attach `Goice.dmg`, an app ZIP, checksums, release notes and the promo MP4 to the matching GitHub release.
 The website's download link must point to the uploaded release asset.
 Update the README, website and launch drafts to the same version and verified release status.
 Keep signing keys, credentials and local capture logs out of Git.

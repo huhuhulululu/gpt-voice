@@ -27,7 +27,7 @@ enum DictationOverlayState: Equatable {
             self = .success(label: "Preview ready")
         case .finished(.copied(.accessibilityMissing)) where !manualPasteHelpDismissed:
             self = .notice(DictationOverlayNotice(title: "Copied to clipboard",
-                message: "Press ⌘V to paste. Allow Accessibility in System Settings. After a Developer ID reinstall, turn GPT Voice off and on there if the switch already looks on.",
+                message: "Press ⌘V to paste. Allow Accessibility in System Settings. After a Developer ID reinstall, turn \(AppBrand.displayName) off and on there if the switch already looks on.",
                 actionTitle: "Open Accessibility",
                 acknowledgesManualPaste: true))
         case .finished(.copied(.injectionFailed)):

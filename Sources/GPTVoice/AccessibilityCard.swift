@@ -122,7 +122,7 @@ struct AccessibilityCard: View {
                         .frame(maxWidth: 520, alignment: .leading)
                     Button("Show this app") { model.revealAppInFinder() }
                         .buttonStyle(AppButtonStyle(kind: .quiet, small: true))
-                        .accessibilityLabel("Show GPT Voice in Finder")
+                        .accessibilityLabel("Show \(AppBrand.displayName) in Finder")
                         .padding(.leading, -10)
                 }
                 .padding(.leading, 14)

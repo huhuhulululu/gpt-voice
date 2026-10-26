@@ -31,10 +31,14 @@ final class AppModel: NSObject, ObservableObject {
     @Published private(set) var lastTranscript: String?
     @Published private(set) var practiceTranscript: String?
     @Published private(set) var isPracticeSession = false
+    @Published private(set) var openAIKeyPresent = false
+    @Published private(set) var connectionTest: ConnectionTestResult?
+    @Published private(set) var isTestingConnection = false
 
     private let audio: AudioCapture
     private let paste: PasteCoordinator
-    private let transcribeAudio: @Sendable (URL) async throws -> String
+    private let transcribeAudio: (@Sendable (URL) async throws -> String)?
+    let secrets: SecretStore
     private var shortcut: GlobalShortcut?
     private var generation = 0
     private var operation: Task<Void, Never>?
@@ -59,11 +63,11 @@ final class AppModel: NSObject, ObservableObject {
     init(preferences: AppPreferences? = nil, pasteboard: NSPasteboard? = nil,
          history: TranscriptionHistory? = nil,
          pasteEnvironment: PasteCoordinator.Environment = .live,
-         transcribeAudio: @escaping @Sendable (URL) async throws -> String = {
-             try await TranscriptionClient().transcribe(file: $0)
-         }) {
+         secrets: SecretStore = KeychainSecretStore(),
+         transcribeAudio: (@Sendable (URL) async throws -> String)? = nil) {
         self.preferences = preferences ?? AppPreferences()
         self.history = history ?? TranscriptionHistory()
+        self.secrets = secrets
         self.transcribeAudio = transcribeAudio
         audio = AudioCapture()
         paste = PasteCoordinator(pasteboard: pasteboard ?? .general, environment: pasteEnvironment)
@@ -92,13 +96,22 @@ final class AppModel: NSObject, ObservableObject {
         hotkey == .leftOption && shortcut?.current == .leftOption && hotkeyError == nil
     }
     var isReadyToDictate: Bool {
-        connection.isUsable && (microphone == .granted || microphone == .notRequested)
+        transcriptionIsReady && (microphone == .granted || microphone == .notRequested)
+    }
+
+    var transcriptionIsReady: Bool {
+        switch preferences.transcriptionProvider {
+        case .codex: return connection.isUsable
+        case .openAICompatible: return preferences.openAICompatibleIsReady(hasAPIKey: openAIKeyPresent)
+        }
     }
 
     /// Items still missing for onboarding. Accessibility is optional.
     var missingRequirements: [String] {
         var missing: [String] = []
-        if !connection.isUsable { missing.append("Sign in with ChatGPT") }
+        if !transcriptionIsReady {
+            missing.append(preferences.usesOpenAICompatible ? "Configure transcription" : "Sign in with ChatGPT")
+        }
         if microphone != .granted { missing.append("Allow microphone access") }
         if hotkeyError != nil || shortcut?.current == nil { missing.append("Choose a working shortcut") }
         return missing
@@ -126,6 +139,7 @@ final class AppModel: NSObject, ObservableObject {
     func refreshStatus() {
         cliAvailable = CodexAuthentication.cliAvailable
         if signInTask == nil { connection = ConnectionStatus.current() }
+        refreshSecretFlags()
         microphone = PermissionStatus(AudioCapture.microphoneStatus)
         accessibilityTrusted = AccessibilityPermission.check()
         launchAtLogin = LaunchAtLoginStatus.current()
@@ -235,9 +249,14 @@ final class AppModel: NSObject, ObservableObject {
         if practice { practiceTranscript = nil }
         // Stay on the cached sign-in and permission flags. A full refresh reads
         // auth.json and can wait on Accessibility, which delays the overlay.
-        guard connection.isUsable else {
-            fail(DictationFailure(message: "Sign in with ChatGPT in Settings, then start dictation.",
-                                  recovery: .signInThenRetry, overlayMessage: "Sign in to ChatGPT"))
+        guard transcriptionIsReady else {
+            if preferences.usesOpenAICompatible {
+                fail(DictationFailure(message: "Add a transcription server URL and API key in Settings → Transcription, then start dictation.",
+                                      recovery: .retry, overlayMessage: "Configure transcription"))
+            } else {
+                fail(DictationFailure(message: "Sign in with ChatGPT in Settings, then start dictation.",
+                                      recovery: .signInThenRetry, overlayMessage: "Sign in to ChatGPT"))
+            }
             return
         }
         if microphone == .denied || microphone == .restricted {
@@ -665,15 +684,97 @@ final class AppModel: NSObject, ObservableObject {
             if enabled { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
         } catch {
             launchAtLoginError = enabled
-                ? "Launch at login could not be turned on. Open Login Items and allow GPT Voice."
-                : "Launch at login could not be turned off. Remove GPT Voice in Login Items."
+                ? "Launch at login could not be turned on. Open Login Items and allow \(AppBrand.displayName)."
+                : "Launch at login could not be turned off. Remove \(AppBrand.displayName) in Login Items."
         }
         launchAtLogin = LaunchAtLoginStatus.current()
     }
 
     func openLoginItemsSettings() { SMAppService.openSystemSettingsLoginItems() }
 
+    // MARK: Transcription settings
+
+    func setTranscriptionProvider(_ provider: TranscriptionProvider) {
+        guard canChangeSettings else { return }
+        preferences.transcriptionProvider = provider
+        connectionTest = nil
+    }
+
+    func saveOpenAIKey(_ value: String) {
+        guard canChangeSettings else { return }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        try? secrets.setSecret(trimmed.isEmpty ? nil : trimmed, for: KeychainSecretStore.apiKeyAccount)
+        refreshSecretFlags()
+    }
+
+    func clearOpenAIKey() {
+        guard canChangeSettings else { return }
+        try? secrets.setSecret(nil, for: KeychainSecretStore.apiKeyAccount)
+        refreshSecretFlags()
+        connectionTest = nil
+    }
+
+    func testOpenAIConnection(apiKeyDraft: String) {
+        guard canChangeSettings, !isTestingConnection else { return }
+        let draft = apiKeyDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !draft.isEmpty { saveOpenAIKey(draft) }
+        isTestingConnection = true
+        connectionTest = nil
+        let endpoint = preferences.openAIEndpoint
+        let key = secrets.secret(for: KeychainSecretStore.apiKeyAccount)
+        Task {
+            let result = await OpenAICompatibleClient().testConnection(endpoint: endpoint, apiKey: key)
+            guard !Task.isCancelled else { return }
+            connectionTest = result
+            isTestingConnection = false
+        }
+    }
+
     // MARK: Private
+
+    private func refreshSecretFlags() {
+        if let key = secrets.secret(for: KeychainSecretStore.apiKeyAccount), !key.isEmpty {
+            openAIKeyPresent = true
+        } else {
+            openAIKeyPresent = false
+        }
+    }
+
+    private func performTranscription(_ url: URL) async throws -> String {
+        let raw: String
+        if let transcribeAudio {
+            raw = try await transcribeAudio(url)
+        } else {
+            raw = try await TranscriptionService.transcribe(
+                file: url,
+                provider: preferences.transcriptionProvider,
+                language: preferences.openAIEndpoint.languageHint,
+                prompt: preferences.vocabularyPrompt,
+                openAI: preferences.openAIEndpoint,
+                apiKey: secrets.secret(for: KeychainSecretStore.apiKeyAccount)
+            )
+        }
+        let chat: (model: String, baseURL: String, apiKey: String?)?
+        if preferences.chatCleanup {
+            let base = preferences.chatCleanupBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+            chat = (
+                preferences.chatCleanupModel,
+                base.isEmpty ? preferences.openAIBaseURL : base,
+                secrets.secret(for: KeychainSecretStore.chatAPIKeyAccount)
+                    ?? secrets.secret(for: KeychainSecretStore.apiKeyAccount)
+            )
+        } else {
+            chat = nil
+        }
+        return await TranscriptPostProcessor.apply(
+            raw,
+            deterministicCleanup: preferences.deterministicCleanup,
+            extraFilterWords: preferences.extraFilterWords,
+            replacements: preferences.replacementList,
+            chat: chat,
+            session: OpenAICompatibleClient.makeSession()
+        )
+    }
 
     private func captureEnded(url: URL) {
         stopMeter()
@@ -698,7 +799,10 @@ final class AppModel: NSObject, ObservableObject {
         operation = Task {
             let text: String
             do {
-                text = try await transcribeAudio(url)
+                text = try await performTranscription(url)
+                if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    throw DictationError.emptyTranscript
+                }
             } catch {
                 guard current == generation, !Task.isCancelled else { return }
                 activeAudio = nil

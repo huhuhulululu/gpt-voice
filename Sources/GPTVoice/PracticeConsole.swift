@@ -33,9 +33,11 @@ struct PracticeConsole: View {
                     .disabled(!model.phase.canCancel)
             })
         }
-        if !model.connection.isUsable {
+        if !model.transcriptionIsReady {
             return AnyView(StatusRow(tone: .attention, symbol: "exclamationmark.circle.fill",
-                                     title: "Sign in to ChatGPT first") {
+                                     title: model.preferences.usesOpenAICompatible
+                                        ? "Configure transcription first"
+                                        : "Sign in to ChatGPT first") {
                 Button("Go to Connect") { goTo(.welcome) }
                     .buttonStyle(AppButtonStyle(kind: .secondary, small: true))
             })

@@ -1,23 +1,24 @@
-# How GPT Voice works
+# How Goice works
 
-GPT Voice is a native Swift app with AppKit windows and SwiftUI content.
+Goice is a native Swift app with AppKit windows and SwiftUI content. The display name is Goice; the Swift package, executable, and bundle identifier stay GPTVoice.
 It does not contain extracted ChatGPT application code or a local transcription model.
 The implementation sends a request shaped like the transcription request observed in the ChatGPT desktop app.
 
 1. A global shortcut starts AVFoundation audio capture.
 2. Releasing a held shortcut, or a second press after a tap, stops capture.
-3. `DictationCore` sends the audio to ChatGPT over HTTPS.
-4. The response becomes a transcript.
+3. `DictationCore` sends the audio to the selected provider over HTTPS. Codex (ChatGPT via Codex CLI) is the default. An OpenAI-compatible `/v1/audio/transcriptions` server is optional.
+4. Optional local cleanup and vocabulary replacements run on the transcript. Optional chat cleanup is off by default and falls back to the local result.
 5. Automatic paste inserts or pastes into the original app, then restores the clipboard. Manual paste leaves the transcript on the clipboard for Command–V.
 
 `Sources/DictationCore` owns credentials, request construction, token renewal and transcript handling.
 `Sources/GPTVoice` owns recording, shortcuts, paste delivery, settings and the recording pill.
 `Tests` covers request behavior, empty speech, shortcut ownership, practice mode, overlay lifecycle, and clipboard restore after automatic paste.
 
-Automatic paste first tries an Accessibility insert at the caret. If that is not available it writes the transcript, posts Command–V, then restores the previous clipboard when the app still owns that text. A clipboard helper that rewrites the same transcript does not leave it sticky. If GPT Voice itself is frontmost (overlay or activation), delivery re-activates the captured target and still inserts or pastes. Manual paste, missing Accessibility, a different third-party app in front, or a failed keystroke keep the transcript for Command–V and record that `ManualReason` in history. A clipboard that changed during recording is left alone.
+Automatic paste first tries an Accessibility insert at the caret. If that is not available it writes the transcript, posts Command–V, then restores the previous clipboard when the app still owns that text. A clipboard helper that rewrites the same transcript does not leave it sticky. If Goice itself is frontmost (overlay or activation), delivery re-activates the captured target and still inserts or pastes. Manual paste, missing Accessibility, a different third-party app in front, or a failed keystroke keep the transcript for Command–V and record that `ManualReason` in history. A clipboard that changed during recording is left alone.
 
-Sign-in and token renewal use the installed Codex CLI app-server protocol.
-GPT Voice reads the resulting file-backed ChatGPT session. API-key authentication is not supported.
+Sign-in and token renewal for the Codex path use the installed Codex CLI app-server protocol.
+Goice reads the resulting file-backed ChatGPT session. Codex API-key auth files are still rejected.
+OpenAI-compatible API keys are stored in the Keychain, never in the repository or UserDefaults.
 The current implementation does not read Codex sessions stored only in the macOS Keychain.
 
 The service route is `https://chatgpt.com/backend-api/transcribe`.

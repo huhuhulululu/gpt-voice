@@ -32,10 +32,10 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         let symbol: String
         let description: String
         switch phase {
-        case .recording: symbol = "mic.fill"; description = "GPT Voice, listening"
-        case .preparing, .transcribing, .pasting: symbol = "mic.circle"; description = "GPT Voice, working"
-        case .failed: symbol = "mic.slash"; description = "GPT Voice, needs attention"
-        case .idle, .finished: symbol = "mic"; description = "GPT Voice"
+        case .recording: symbol = "mic.fill"; description = "\(AppBrand.displayName), listening"
+        case .preparing, .transcribing, .pasting: symbol = "mic.circle"; description = "\(AppBrand.displayName), working"
+        case .failed: symbol = "mic.slash"; description = "\(AppBrand.displayName), needs attention"
+        case .idle, .finished: symbol = "mic"; description = AppBrand.displayName
         }
         let image = NSImage(systemSymbolName: symbol, accessibilityDescription: description)
             ?? NSImage(systemSymbolName: "mic", accessibilityDescription: description)
@@ -100,7 +100,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         menu.addItem(settings)
         menu.addItem(item("Run Setup Again…", #selector(showOnboarding), enabled: true))
         menu.addItem(.separator())
-        let quit = item("Quit GPT Voice", #selector(quit), enabled: true)
+        let quit = item("Quit \(AppBrand.displayName)", #selector(quit), enabled: true)
         quit.keyEquivalent = "q"
         menu.addItem(quit)
     }

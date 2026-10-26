@@ -102,7 +102,7 @@ struct OnboardingView: View {
 
     private var pending: Bool {
         switch step {
-        case .welcome: return !model.connection.isUsable
+        case .welcome: return !model.transcriptionIsReady
         case .permissions: return model.microphone != .granted
         case .practice: return model.practiceTranscript == nil
         case .shortcut, .ready: return false

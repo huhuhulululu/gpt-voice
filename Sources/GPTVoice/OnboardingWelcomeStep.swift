@@ -1,9 +1,11 @@
+import DictationCore
 import SwiftUI
 
-/// Welcome in three zones: what it does, a small demonstration with the real keys and bar, and the ChatGPT row.
+/// Welcome in three zones: what it does, a small demonstration with the real keys and bar, and the provider row.
 struct OnboardingWelcomeStep: View {
     @ObservedObject var model: AppModel
     @ObservedObject var preferences: AppPreferences
+    @State private var apiKeyDraft = ""
 
     init(model: AppModel) {
         self.model = model
@@ -28,13 +30,46 @@ struct OnboardingWelcomeStep: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 SettingsGroup {
-                    ConnectionPanel(model: model, prominentSignIn: true)
+                    SettingsRow(title: "Provider") {
+                        AppSegmented(label: "Transcription provider", options: TranscriptionProvider.allCases,
+                                     title: \.title,
+                                     selection: Binding(get: { preferences.transcriptionProvider },
+                                                        set: { model.setTranscriptionProvider($0) }))
+                    }
+                    if preferences.usesOpenAICompatible {
+                        SettingsRow(title: "Base URL") {
+                            AppTextField(label: "Base URL", text: $preferences.openAIBaseURL,
+                                         placeholder: "http://127.0.0.1:8080/v1")
+                        }
+                        SettingsRow(title: "API key",
+                                    detail: model.openAIKeyPresent ? "A key is saved on this Mac." : nil) {
+                            AppTextField(label: "API key", text: $apiKeyDraft, placeholder: "optional for localhost",
+                                         secure: true)
+                        }
+                        SettingsRow(title: "Save & Test", showsDivider: false) {
+                            Button("Save & Test") { model.testOpenAIConnection(apiKeyDraft: apiKeyDraft) }
+                                .buttonStyle(AppButtonStyle(kind: .secondary,
+                                                            isLoading: model.isTestingConnection, small: true))
+                                .disabled(model.isTestingConnection)
+                        }
+                    } else {
+                        ConnectionPanel(model: model, prominentSignIn: true)
+                    }
                 }
-                Text("Audio is sent to ChatGPT for transcription.")
+                Text(preferences.usesOpenAICompatible
+                     ? "Audio is sent to your OpenAI-compatible server. Codex remains available."
+                     : "Audio is sent to ChatGPT for transcription.")
                     .font(AppType.detail)
                     .foregroundStyle(.secondary)
+                if let result = model.connectionTest, preferences.usesOpenAICompatible {
+                    Text(result.message)
+                        .font(AppType.detail)
+                        .foregroundStyle(result.ok ? AppPalette.success : AppPalette.problem)
+                }
                 InfoDisclosure(label: "Storage and account",
-                               text: "Recordings are temporary files. Transcripts are saved on this Mac, and you can remove them in History. Sign-in is shared with Codex CLI, and this app makes no copy of your credentials.")
+                               text: preferences.usesOpenAICompatible
+                                ? "Recordings are temporary files. Transcripts are saved on this Mac, and you can remove them in History. The API key stays in the Keychain. This app makes no copy of your audio after a successful transcription."
+                                : "Recordings are temporary files. Transcripts are saved on this Mac, and you can remove them in History. Sign-in is shared with Codex CLI, and this app makes no copy of your credentials.")
             }
         }
     }

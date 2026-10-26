@@ -73,7 +73,7 @@ extension PasteOutcome.ManualReason {
         case .automaticPasteOff:
             return "Automatic paste is off. Press ⌘V, or turn paste on in Settings → Paste & behavior."
         case .accessibilityMissing:
-            return "Allow GPT Voice in System Settings → Privacy & Security → Accessibility, then reopen the app."
+            return "Allow \(AppBrand.displayName) in System Settings → Privacy & Security → Accessibility, then reopen the app."
         case .targetChanged:
             return "You changed apps during dictation, so automatic paste was skipped. Press ⌘V."
         case .noTarget:

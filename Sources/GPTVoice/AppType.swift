@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 /// Type roles, in two families with distinct jobs:
-/// - FT Regola Neue (display): page titles, section headings and the GPT Voice wordmark. Only its three
+/// - FT Regola Neue (display): page titles, section headings and the Goice wordmark. Only its three
 ///   shipped weights are used, so no weight is ever synthesized.
 /// - San Francisco (system): everything people read or operate, such as rows, body, details, controls,
 ///   keycaps, captions and timers.
@@ -18,7 +18,7 @@ enum AppType {
     static let title = Font.custom(semibold, size: 26)
     /// Section headings and the sidebar wordmark.
     static let heading = Font.custom(semibold, size: 15)
-    /// The GPT Voice wordmark inline with other text (About row).
+    /// The Goice wordmark inline with other text (About row).
     static let brand = Font.custom(medium, size: 14)
 
     // MARK: Reading and controls (San Francisco)

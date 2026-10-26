@@ -12,12 +12,16 @@ enum CommandLineTool {
     /// Prints status JSON. Reads status only.
     static func diagnose() -> Int32 {
         FontRegistration.registerBundledFonts()
+        let keyConfigured = KeychainSecretStore().secret(for: KeychainSecretStore.apiKeyAccount)?.isEmpty == false
         var result: [String: Any] = [
             "appVersion": appVersion,
+            "displayName": AppBrand.displayName,
             "microphone": microphoneName(AVCaptureDevice.authorizationStatus(for: .audio)),
             "accessibility": AccessibilityPermission.check(),
             "inputMonitoring": InputMonitoringPermission.isGranted,
             "codexCLIAvailable": CodexAuthentication.cliAvailable,
+            "transcriptionProvider": UserDefaults.standard.string(forKey: "transcriptionProvider") ?? "codex",
+            "openAIKeyConfigured": keyConfigured,
             "bundledFonts": FontRegistration.fontAvailability
         ]
         do {
@@ -36,7 +40,22 @@ enum CommandLineTool {
     static func transcribe(path: String) async -> Int32 {
         let url = URL(fileURLWithPath: path)
         do {
-            let text = try await TranscriptionClient().transcribe(file: url)
+            let defaults = UserDefaults.standard
+            let provider = TranscriptionProvider(rawValue: defaults.string(forKey: "transcriptionProvider") ?? "") ?? .codex
+            let endpoint = OpenAICompatibleEndpoint(
+                baseURL: defaults.string(forKey: "openAIBaseURL") ?? "https://api.openai.com/v1",
+                model: defaults.string(forKey: "openAIModel") ?? "whisper-1",
+                language: defaults.string(forKey: "transcriptionLanguage") ?? ""
+            )
+            let prompt = Vocabulary.glossaryPrompt(from: Vocabulary.parseWordList(defaults.string(forKey: "vocabularyWords") ?? ""))
+            let text = try await TranscriptionService.transcribe(
+                file: url,
+                provider: provider,
+                language: endpoint.languageHint,
+                prompt: prompt,
+                openAI: endpoint,
+                apiKey: KeychainSecretStore().secret(for: KeychainSecretStore.apiKeyAccount)
+            )
             FileHandle.standardOutput.write(Data((text + "\n").utf8))
             return 0
         } catch {

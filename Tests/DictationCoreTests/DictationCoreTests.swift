@@ -35,7 +35,7 @@ final class DictationCoreTests: XCTestCase {
     }
 
     func testServiceErrorsDoNotExposeResponseOrCredentials() {
-        XCTAssertEqual(DictationError.service(429).localizedDescription, "ChatGPT reached a request limit. Try again later.")
+        XCTAssertEqual(DictationError.service(429).localizedDescription, "The transcription server reached a request limit. Try again later.")
         XCTAssertTrue(DictationError.service(403).localizedDescription.contains("denied"))
     }
 }

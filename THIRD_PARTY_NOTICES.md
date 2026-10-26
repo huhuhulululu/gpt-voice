@@ -1,6 +1,6 @@
 # Third-party notices
 
-The [MIT license](LICENSE) applies to GPT Voice's original source code.
+The [MIT license](LICENSE) applies to Goice's original source code.
 Third-party assets retain their original terms. The license does not grant rights to third-party trademarks or media.
 
 ## Promo video
@@ -18,5 +18,5 @@ The published MP4 is a showcase asset, not a collection of reusable stock media.
 
 ## Names
 
-GPT Voice is an independent project. It is not an official OpenAI, ChatGPT or T3 Code application.
+Goice is an independent project. It is not an official OpenAI, ChatGPT or T3 Code application.
 ChatGPT and OpenAI are trademarks of OpenAI. Other names belong to their respective owners.

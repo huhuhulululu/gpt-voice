@@ -18,7 +18,7 @@ final class WindowCoordinator {
                 self?.onboarding?.close()
             }
         }
-        let controller = HostingWindowController(title: "Set Up GPT Voice", size: NSSize(width: 660, height: 520),
+        let controller = HostingWindowController(title: "Set Up \(AppBrand.displayName)", size: NSSize(width: 660, height: 520),
                                                  minSize: NSSize(width: 600, height: 480),
                                                  rootView: view) { [weak self] in self?.windowClosed(isSettings: false) }
         onboarding = controller
@@ -27,7 +27,7 @@ final class WindowCoordinator {
 
     func showSettings() {
         if let settings { settings.present(); return }
-        let controller = HostingWindowController(title: "GPT Voice Settings", size: NSSize(width: 820, height: 600),
+        let controller = HostingWindowController(title: "\(AppBrand.displayName) Settings", size: NSSize(width: 820, height: 600),
                                                  minSize: NSSize(width: 720, height: 540),
                                                  rootView: ThemedRoot(preferences: model.preferences) {
                                                      SettingsView(model: model)

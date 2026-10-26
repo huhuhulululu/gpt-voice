@@ -8,7 +8,7 @@ Small fixes can go directly to a pull request.
 1. Install Xcode Command Line Tools and Python 3 on macOS 13 or later.
 2. Clone this repository.
 3. Run `swift test`.
-4. Run `./scripts/build.sh` to create `dist/GPT Voice.app`.
+4. Run `./scripts/build.sh` to create `dist/Goice.app`.
 
 Use `./scripts/build.sh --install` to install your build in `~/Applications`.
 A local build uses ad hoc signing unless you select a certificate.

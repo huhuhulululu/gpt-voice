@@ -50,6 +50,12 @@ struct DictationFailure: Equatable {
              DictationError.refreshFailed, DictationError.service(401):
             self.init(message: "Your ChatGPT sign-in is missing or expired. Sign in, then select Retry.",
                       recovery: .signInThenRetry, overlayMessage: "Sign in to ChatGPT")
+        case DictationError.apiKeyRejected:
+            self.init(message: "The transcription server rejected the API key. Check Settings → Transcription, then select Retry.",
+                      recovery: .retry, overlayMessage: "Check the API key")
+        case DictationError.invalidEndpoint:
+            self.init(message: "The transcription server URL is not valid. Check Settings → Transcription.",
+                      recovery: .retry, overlayMessage: "Check the server URL")
         case DictationError.refreshUnavailable:
             self.init(message: "Install Codex CLI and sign in with ChatGPT, then select Retry.",
                       recovery: .signInThenRetry, overlayMessage: "Sign in to ChatGPT")
@@ -69,8 +75,8 @@ struct DictationFailure: Equatable {
             self.init(message: "\(error.localizedDescription) Select Retry to send the audio again.", recovery: .retry,
                       overlayMessage: "Transcription failed")
         case is URLError:
-            self.init(message: "ChatGPT could not be reached. Check your network, then select Retry.", recovery: .retry,
-                      overlayMessage: "Couldn’t reach ChatGPT")
+            self.init(message: "The transcription server could not be reached. Check your network, then select Retry.", recovery: .retry,
+                      overlayMessage: "Couldn’t reach the server")
         default:
             self.init(message: "Transcription failed. Select Retry to send the audio again.", recovery: .retry,
                       overlayMessage: "Transcription failed")
@@ -80,7 +86,7 @@ struct DictationFailure: Equatable {
     init(captureError error: AudioCaptureError, audioKept: Bool) {
         switch error {
         case .microphoneDenied:
-            self.init(message: "Microphone access is off. Turn on GPT Voice in System Settings → Privacy & Security → Microphone, then start again.",
+            self.init(message: "Microphone access is off. Turn on \(AppBrand.displayName) in System Settings → Privacy & Security → Microphone, then start again.",
                       recovery: .microphoneSettings, overlayMessage: "Microphone access is off")
         case .deviceFailed where audioKept:
             self.init(message: "The microphone stopped. Select Retry to transcribe the audio recorded so far.",

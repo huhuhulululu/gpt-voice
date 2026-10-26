@@ -18,8 +18,11 @@ struct ReadinessList: View {
         self.fix = fix
     }
 
-    /// A short value that does not repeat the "ChatGPT" label.
+    /// A short value that does not repeat the row title.
     private var connectionValue: String {
+        if preferences.usesOpenAICompatible {
+            return model.transcriptionIsReady ? "OpenAI-compatible" : "Needs configuration"
+        }
         switch model.connection {
         case .checking: return "Checking"
         case .connected: return "Connected"
@@ -35,8 +38,9 @@ struct ReadinessList: View {
         let shortcutWorks = !model.missingRequirements.contains("Choose a working shortcut")
         let automatic = preferences.automaticPaste && model.accessibilityTrusted
         VStack(spacing: 0) {
-            ReadinessRow(title: "ChatGPT", detail: connectionValue,
-                         status: model.connection.isUsable ? .ready : .missing) { fix(.connection) }
+            ReadinessRow(title: preferences.usesOpenAICompatible ? "Transcription" : "ChatGPT",
+                         detail: connectionValue,
+                         status: model.transcriptionIsReady ? .ready : .missing) { fix(.connection) }
             ReadinessRow(title: "Microphone", detail: model.microphone.title,
                          status: model.microphone == .granted ? .ready : .missing) { fix(.permissions) }
             ReadinessRow(title: "Shortcut",

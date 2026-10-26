@@ -34,7 +34,7 @@ struct BehaviorSection: View {
             }
             if preferences.automaticPaste, !model.accessibilityTrusted {
                 StatusRow(tone: .neutral, symbol: "circle.dashed", title: "Accessibility is off",
-                          detail: "Allow it so GPT Voice can paste for you. Or leave paste off and press ⌘V.") {
+                          detail: "Allow it so \(AppBrand.displayName) can paste for you. Or leave paste off and press ⌘V.") {
                     Button("Allow") { model.requestAccessibility() }
                         .buttonStyle(AppButtonStyle(kind: .secondary, small: true))
                         .accessibilityLabel("Allow Accessibility")

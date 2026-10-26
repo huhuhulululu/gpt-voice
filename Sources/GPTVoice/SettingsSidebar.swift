@@ -11,12 +11,12 @@ struct SettingsSidebar: View {
 
             HStack(spacing: 8) {
                 WaveMark(size: 20)
-                Text("GPT Voice").font(AppType.heading)
+                Text(AppBrand.displayName).font(AppType.heading)
             }
             .padding(.horizontal, 10)
             .padding(.bottom, 16)
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("GPT Voice")
+            .accessibilityLabel(AppBrand.displayName)
 
             ForEach(SettingsPage.allCases) { page in
                 Button(page.title) { selection = page }

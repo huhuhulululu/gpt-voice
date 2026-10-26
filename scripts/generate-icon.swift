@@ -1,4 +1,4 @@
-// Renders the GPT Voice app icon to match the in-app WaveMark:
+// Renders the Goice app icon to match the in-app WaveMark:
 // a graphite tile with five rounded voice bars in soft white. Monochrome. Original paths only, no assets.
 // Transparent canvas with the native macOS icon inset.
 // Usage: swift scripts/generate-icon.swift OUTPUT.png [SIZE]

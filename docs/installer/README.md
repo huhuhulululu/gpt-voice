@@ -13,9 +13,9 @@ Layout, in Finder points with the origin at the top left:
 
 - Window 760 x 500; toolbar, sidebar and status bar hidden.
 - App icon center (210, 255) and Applications link center (550, 255); icon size 112, labels at the bottom.
-- WaveMark and "GPT Voice" wordmark centered at y 76; "Drag to Applications" at y 106–124.
+- WaveMark and "Goice" wordmark centered at y 76; "Drag to Applications" at y 106–124.
 - Arrow from x 306 to 454 at y 255, 40 points clear of each icon.
-- Footnote "Then open GPT Voice from your Applications folder." at y 446.
+- Footnote "Then open Goice from your Applications folder." at y 446.
 - Empty from y 190 to 430 apart from the arrow, for icons and labels.
 
 Colors come from the app's light palette: paper #F6F6F5 to #EFEFEE, ink #1C1C1E, secondary #6E6E73, tertiary #8E8E93.

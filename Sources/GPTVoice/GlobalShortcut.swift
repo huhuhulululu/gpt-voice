@@ -23,7 +23,7 @@ final class GlobalShortcut {
                     ? "Spotlight uses Command–Space. Turn off or change that shortcut in System Settings → Keyboard → Keyboard Shortcuts → Spotlight, then try again."
                     : "macOS uses this shortcut. Change it in System Settings → Keyboard → Keyboard Shortcuts, then try again."
             case .inputMonitoring:
-                return "This shortcut needs Input Monitoring. Enable GPT Voice in System Settings → Privacy & Security → Input Monitoring. Quit and reopen GPT Voice if the shortcut still does not respond."
+                return "This shortcut needs Input Monitoring. Enable \(AppBrand.displayName) in System Settings → Privacy & Security → Input Monitoring. Quit and reopen \(AppBrand.displayName) if the shortcut still does not respond."
             case .system(let status): return "macOS could not register this shortcut (error \(status))."
             }
         }

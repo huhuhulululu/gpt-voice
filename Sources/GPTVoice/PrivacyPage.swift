@@ -7,14 +7,22 @@ struct PrivacyPage: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
             SettingsGroup(title: "Your data") {
-                fact("Audio", "Sent to ChatGPT for transcription.")
+                fact("Audio", model.preferences.usesOpenAICompatible
+                     ? "Sent to your configured transcription server."
+                     : "Sent to ChatGPT for transcription.")
                 fact("Recordings", "Temporary files on this Mac.",
                      details: "Deleted after a successful transcription or Cancel. A failed recording is kept for Retry until you quit.")
                 fact("Transcripts", "Saved on this Mac. Delete any or all in History.",
-                     details: "Each row shows the time and whether the text was pasted or copied. Copied rows include a short reason, not tokens or other secrets.")
-                fact("Sign-in", "Shared with Codex CLI.",
-                     details: "Credentials stay in Codex CLI storage. This app makes no copy. To sign out, run “codex logout” in Terminal. This also signs out Codex CLI.",
-                     last: true)
+                     details: "Each row shows the time and whether the text was pasted or copied. Copied rows include a short reason, not tokens or other secrets. Optional cleanup runs on this Mac.")
+                if model.preferences.usesOpenAICompatible {
+                    fact("API key", "Stored in the Keychain on this Mac.",
+                         details: "This app does not log the key. Clear it in Settings → Transcription.",
+                         last: true)
+                } else {
+                    fact("Sign-in", "Shared with Codex CLI.",
+                         details: "Credentials stay in Codex CLI storage. This app makes no copy. To sign out, run “codex logout” in Terminal. This also signs out Codex CLI.",
+                         last: true)
+                }
             }
             VStack(alignment: .leading, spacing: 8) {
                 SettingsGroup(title: "Permissions") {

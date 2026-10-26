@@ -63,6 +63,7 @@ struct SettingsView: View {
         case .home: HomePage(model: model) { page = $0 }
         case .history: HistoryPage(model: model)
         case .shortcuts: ShortcutPanel(model: model)
+        case .transcription: TranscriptionPage(model: model)
         case .appearance: AppearanceSection(preferences: preferences)
         case .preferences: BehaviorSection(model: model)
         case .privacy: PrivacyPage(model: model)

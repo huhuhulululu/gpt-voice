@@ -12,7 +12,7 @@ struct AboutSection: View {
     var body: some View {
         HStack(spacing: 10) {
             WaveMark(size: 18)
-            Text("GPT Voice").font(AppType.brand)
+            Text(AppBrand.displayName).font(AppType.brand)
             Text(version).font(AppType.detail).foregroundStyle(.secondary)
             Spacer(minLength: 12)
             Button("Codex CLI documentation") { NSWorkspace.shared.open(AppModel.installCodexURL) }

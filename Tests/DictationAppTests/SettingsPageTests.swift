@@ -4,9 +4,10 @@ import XCTest
 final class SettingsPageTests: XCTestCase {
     func testSidebarNamesPasteAndKeepsShortcutNearby() {
         XCTAssertEqual(SettingsPage.allCases.map(\.title), [
-            "Home", "History", "Shortcut", "Paste & behavior", "Appearance", "Privacy"
+            "Home", "History", "Shortcut", "Transcription", "Paste & behavior", "Appearance", "Privacy"
         ])
         XCTAssertEqual(SettingsPage.preferences.intro, "Automatic paste, sound cues, and login.")
+        XCTAssertEqual(SettingsPage.transcription.intro, "Provider, cleanup, and vocabulary.")
         XCTAssertEqual(SettingsPage.privacy.intro,
                        "Microphone, Accessibility, Input Monitoring, and what this app stores.")
         XCTAssertNil(SettingsPage.shortcuts.intro)
