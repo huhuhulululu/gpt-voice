@@ -28,8 +28,9 @@ struct HistoryEntryView: View {
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
-                    // Day headings say Today or Yesterday. The tooltip keeps the exact moment.
-                    .help(entry.createdAt.formatted(date: .complete, time: .standard))
+                    // Day headings say Today or Yesterday. The tooltip keeps the exact moment
+                    // and, for copied rows, why paste was skipped — never the transcript.
+                    .help(helpText)
                 Spacer(minLength: 8)
                 HStack(spacing: 2) {
                     QuietIconButton(symbol: copied ? "checkmark" : "doc.on.doc",
@@ -71,13 +72,18 @@ struct HistoryEntryView: View {
         .onDisappear { resetCopied?.cancel() }
     }
 
-    /// Time, plus the app only when paste keystrokes went to a known one. "Sent", because the app may not accept them.
+    /// Time plus a delivery caption. Pasted names the destination; copied names the reason.
     private var meta: String {
         let time = entry.createdAt.formatted(date: .omitted, time: .shortened)
-        if case .pasted(let appName?) = entry.delivery, !appName.isEmpty {
-            return "\(time) · Sent to \(appName)"
+        return "\(time) · \(entry.delivery.historyCaption)"
+    }
+
+    private var helpText: String {
+        let when = entry.createdAt.formatted(date: .complete, time: .standard)
+        if let guidance = entry.delivery.historyGuidance {
+            return "\(when). \(guidance)"
         }
-        return time
+        return when
     }
 
     private var expandToggle: some View {

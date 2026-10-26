@@ -17,7 +17,7 @@ struct OnboardingReadyStep: View {
         VStack(alignment: .leading, spacing: 24) {
             OnboardingHeader(title: ready ? "Ready to dictate" : "Almost ready",
                              summary: ready
-                                 ? "Press \(preferences.hotkey.displayLabel) in any app to start."
+                                 ? preferences.hotkey.usageInstruction
                                  : "Fix the items marked missing, or finish later in Settings.")
             SettingsGroup {
                 ReadinessList(model: model) { fix in

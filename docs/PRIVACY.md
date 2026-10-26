@@ -16,7 +16,7 @@ The app removes owned audio files after successful transcription, cancellation, 
 A failed request can keep its audio for Retry until another recording starts or the app quits.
 A crash can leave temporary files until macOS removes them.
 Successful transcriptions are saved on this Mac with their date, time, and delivery result.
-When paste keystrokes are sent to a known app, history includes its name. The app cannot confirm whether that app accepted the text.
+When paste keystrokes are sent to a known app, history includes its name. Copied rows store a short reason enum, not the transcript twice and not tokens or other secrets. The app cannot confirm whether that app accepted the text.
 Practice transcriptions, failed requests, and cancelled recordings are not saved.
 Use **History** to copy a transcript, delete one entry, or clear all entries.
 History is not uploaded by GPT Voice. The file is readable only by your macOS user account.

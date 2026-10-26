@@ -58,7 +58,7 @@ struct HistoryPage: View {
         SettingsGroup {
             VStack(alignment: .leading, spacing: 4) {
                 Text("No transcripts yet").font(AppType.rowTitle)
-                Text("Dictate with \(model.preferences.hotkey.displayLabel). Each transcript is saved here, on this Mac.")
+                Text("Dictate with \(model.preferences.hotkey.displayLabel). Each transcript is saved here, on this Mac. Pasted rows name the app; copied rows say why paste was skipped.")
                     .font(AppType.detail)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

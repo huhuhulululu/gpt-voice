@@ -12,30 +12,60 @@ struct HomePage: View {
         self.goTo = goTo
     }
 
+    private var showsInputMonitoring: Bool {
+        model.hotkeyNeedsInputMonitoring || preferences.hotkey.isModifierHold
+    }
+
     var body: some View {
         let ready = model.missingRequirements.isEmpty
         VStack(alignment: .leading, spacing: 24) {
             SettingsGroup(footnote: ready
-                ? "Press \(preferences.hotkey.displayLabel) in any app to start. Press it again to stop."
+                ? preferences.hotkey.usageInstruction
                 : "Dictation works once the items marked here are fixed.") {
                 ConnectionPanel(model: model, prominentSignIn: false)
                     .disabled(!model.canChangeSettings)
                 RowDivider()
                 MicrophoneCard(model: model, prominent: false)
                 RowDivider()
-                AccessibilityCard(model: model)
+                AccessibilityCard(model: model, onAdjustPaste: { goTo(.preferences) })
+                if showsInputMonitoring {
+                    RowDivider()
+                    InputMonitoringCard(model: model)
+                }
                 RowDivider()
-                SettingsRow(title: "Shortcut", showsDivider: false) {
+                SettingsRow(title: "Shortcut",
+                            detail: model.hotkeyError == nil ? preferences.hotkey.usageInstruction : nil,
+                            showsDivider: model.hotkeyError != nil) {
                     HStack(spacing: 8) {
                         KeycapsView(spec: preferences.hotkey)
                         Button("Change") { goTo(.shortcuts) }
                             .buttonStyle(AppButtonStyle(kind: .quiet, small: true))
                     }
                 }
+                if let error = model.hotkeyError {
+                    StatusRow(tone: .problem, symbol: "exclamationmark.triangle.fill",
+                              title: "Shortcut needs a fix", detail: error) {
+                        if model.hotkeyBlockedBySystem {
+                            Button("Keyboard settings") { model.openKeyboardShortcutsSettings() }
+                                .buttonStyle(AppButtonStyle(kind: .secondary, showsArrow: true, small: true))
+                        } else if model.hotkeyNeedsInputMonitoring {
+                            Button("Input Monitoring settings") { model.openInputMonitoringSettings() }
+                                .buttonStyle(AppButtonStyle(kind: .secondary, showsArrow: true, small: true))
+                        }
+                        Button("Change shortcut") { goTo(.shortcuts) }
+                            .buttonStyle(AppButtonStyle(kind: .quiet, small: true))
+                    }
+                }
             }
 
-            InfoDisclosure(label: "How dictation works",
-                           text: "Click where you want the text. Press your shortcut and speak. Press it again to finish. With automatic paste, the text goes where you clicked. Otherwise it is copied and you press ⌘V.")
+            InfoDisclosure(label: "How dictation works", text: howDictationWorks)
         }
+    }
+
+    private var howDictationWorks: String {
+        let start = preferences.hotkey.isModifierHold
+            ? "Click where you want the text. Hold \(preferences.hotkey.displayLabel) and speak. Release to finish."
+            : "Click where you want the text. Hold \(preferences.hotkey.displayLabel) and speak, then release. A short tap still starts; press again to finish."
+        return start + " With automatic paste, the text goes where you clicked. Otherwise it is copied and you press ⌘V."
     }
 }

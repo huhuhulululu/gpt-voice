@@ -38,6 +38,10 @@ final class HotkeySpecTests: XCTestCase {
         XCTAssertNil(HotkeySpec.leftOption.problem)
         XCTAssertTrue(HotkeySpec.leftOption.isModifierHold)
         XCTAssertEqual(HotkeySpec.leftOption.displayLabel, "Left ⌥")
+        XCTAssertEqual(HotkeySpec.leftOption.usageInstruction,
+                       "Hold Left ⌥ to record. Release to transcribe and paste.")
+        XCTAssertTrue(HotkeySpec.default.usageInstruction.contains("Hold ⌃⌥Space"))
+        XCTAssertTrue(HotkeySpec.default.usageInstruction.contains("short tap"))
         XCTAssertEqual(HotkeySpec.leftOption.accessibilityLabel, "Left Option")
         XCTAssertEqual(HotkeySpec.leftOption.keycaps, ["Left ⌥"])
         let data = try JSONEncoder().encode(HotkeySpec.leftOption)

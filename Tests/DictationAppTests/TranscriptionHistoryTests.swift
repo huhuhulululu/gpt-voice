@@ -85,6 +85,31 @@ final class TranscriptionHistoryTests: XCTestCase {
         XCTAssertEqual(try JSONDecoder().decode(HistoryDelivery.self, from: legacy), .copied(reason: nil))
         XCTAssertEqual(HistoryDelivery(.copied(.injectionFailed)), .copied(reason: .injectionFailed))
         XCTAssertEqual(HistoryDelivery(.pasted(appName: "Orca")), .pasted(appName: "Orca"))
+
+        XCTAssertEqual(HistoryDelivery.pasted(appName: "Notes").historyCaption, "Pasted into Notes")
+        XCTAssertEqual(HistoryDelivery.pasted(appName: nil).historyCaption, "Pasted")
+        XCTAssertEqual(HistoryDelivery.copied(reason: .targetChanged).historyCaption, "Copied · app changed")
+        XCTAssertEqual(HistoryDelivery.copied(reason: .injectionFailed).historyCaption, "Copied · paste failed")
+        XCTAssertEqual(HistoryDelivery.copied(reason: nil).historyCaption, "Copied")
+        XCTAssertEqual(HistoryDelivery.clipboardPreserved.historyCaption, "Clipboard kept")
+        XCTAssertTrue(HistoryDelivery.copied(reason: .injectionFailed).historyGuidance?.contains("Developer ID") == true)
+
+        let secret = "sk-live-not-a-real-secret"
+        let deliveries: [HistoryDelivery] = [
+            .pasted(appName: "Notes"),
+            .copied(reason: .automaticPasteOff),
+            .copied(reason: .accessibilityMissing),
+            .copied(reason: .targetChanged),
+            .copied(reason: .noTarget),
+            .copied(reason: .injectionFailed),
+            .copied(reason: nil),
+            .clipboardPreserved
+        ]
+        for delivery in deliveries {
+            XCTAssertFalse(delivery.historyCaption.contains(secret))
+            XCTAssertFalse(delivery.historyCaption.contains("token"))
+            XCTAssertFalse((delivery.historyGuidance ?? "").contains(secret))
+        }
     }
 
     @MainActor

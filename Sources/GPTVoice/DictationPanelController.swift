@@ -121,7 +121,8 @@ final class DictationPanelController: NSObject {
                                      guard let model, model.phase.canCancel else { return }
                                      model.cancel()
                                  },
-                                 dismiss: { [weak self] in self?.dismissHelp() })
+                                 dismiss: { [weak self] in self?.dismissHelp() },
+                                 recover: { [weak model] in model?.recoverFromOverlay() })
     }
 
     @objc private func hideTimerFired(_ timer: Timer) {

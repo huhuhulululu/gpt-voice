@@ -132,6 +132,7 @@ final class AppModelClipboardTests: XCTestCase {
         let failure = DictationFailure(transcriptionError: DictationError.signInRequired)
         let state = DictationOverlayState(phase: .failed(failure), elapsed: 0, level: 0)
         XCTAssertEqual(failure.overlayMessage, "Sign in to ChatGPT")
+        XCTAssertEqual(failure.recovery, .signInThenRetry)
         XCTAssertEqual(state, .message(label: "Sign in to ChatGPT", kind: .warning))
     }
 

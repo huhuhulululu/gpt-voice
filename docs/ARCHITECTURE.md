@@ -24,13 +24,13 @@ The service route is `https://chatgpt.com/backend-api/transcribe`.
 It is private, undocumented for this use, and can change.
 The project does not guarantee access on every plan or for every account.
 
-The recording pill appears as soon as a hold is accepted, then uses a short fade and a 0.96–1.0 scale on entrance. Width changes ease out. Dismiss uses a fade and a slight scale-down.
-Reduce Motion keeps a short fade and snaps the size. Result notices disappear automatically. Recovery actions stay in the menu bar.
+The recording pill appears as soon as a hold is accepted, then uses a short fade and a 0.96–1.0 scale on entrance. Width changes ease out. Transcribing and Pasting share one working surface so the spinner does not remount. Dismiss uses a fade and a slight scale-down.
+Reduce Motion keeps a short fade and snaps the size. Result notices disappear automatically. Accessibility paste failures can show a recovery card that opens System Settings. The menu bar also offers Microphone, Accessibility, Input Monitoring, or Sign In when that is the current failure.
 
 ## Local history
 
 `TranscriptionHistory` publishes saved transcripts to the History page. It serializes commands and delegates file access to `HistoryRepository`.
 The repository writes a versioned JSON document through a private temporary file and an atomic replacement.
-Entries contain the exact text, completion time, and delivery result. They do not contain audio, window titles, document paths, or account data.
+Entries contain the exact text, completion time, and delivery result. Copied rows include a `ManualReason`. They do not contain audio, window titles, document paths, tokens, or account data. The History page shows a short caption (`Pasted into Notes` or `Copied · Accessibility off`) and, for copied rows, a tooltip that points to the fix.
 Normal dictation saves once after delivery. Practice, errors, and cancellation before a result do not create entries. Copying an old result does not duplicate it.
 The app waits for pending delivery and history writes before normal quit.

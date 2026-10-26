@@ -20,7 +20,7 @@ struct SettingsView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
                         HStack(alignment: .firstTextBaseline, spacing: 12) {
-                            PageHeader(title: page.title, intro: page.intro)
+                            PageHeader(title: page.title, intro: intro(for: page))
                             if page == .history {
                                 HistoryClearView(history: model.history)
                             }
@@ -66,6 +66,13 @@ struct SettingsView: View {
         case .appearance: AppearanceSection(preferences: preferences)
         case .preferences: BehaviorSection(model: model)
         case .privacy: PrivacyPage(model: model)
+        }
+    }
+
+    private func intro(for page: SettingsPage) -> String? {
+        switch page {
+        case .shortcuts: return preferences.hotkey.usageInstruction
+        default: return page.intro
         }
     }
 }

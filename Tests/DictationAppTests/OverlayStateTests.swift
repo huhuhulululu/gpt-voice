@@ -25,4 +25,42 @@ final class OverlayStateTests: XCTestCase {
         XCTAssertEqual(timing.hold(for: .success(label: "Pasted")), timing.success)
         XCTAssertEqual(timing.hold(for: .message(label: "Press ⌘V to paste", kind: .info)), timing.pasteHint)
     }
+
+    func testTranscribingAndPastingShareAWorkingSurface() {
+        let transcribing = DictationOverlayState(phase: .transcribing, elapsed: 0, level: 0)
+        let pasting = DictationOverlayState(phase: .pasting, elapsed: 0, level: 0)
+        XCTAssertEqual(transcribing.transitionID, pasting.transitionID)
+        XCTAssertEqual(transcribing.transitionID, "working")
+        XCTAssertNotEqual(transcribing.transitionID, DictationOverlayState(phase: .recording, elapsed: 0, level: 0).transitionID)
+    }
+
+    func testCopiedOverlayHintsNameTheReasonWithoutTheTranscript() {
+        XCTAssertEqual(DictationOverlayState(phase: .finished(.copied(.automaticPasteOff)), elapsed: 0, level: 0),
+                       .message(label: "Press ⌘V to paste", kind: .info))
+        XCTAssertEqual(DictationOverlayState(phase: .finished(.copied(.accessibilityMissing)), elapsed: 0, level: 0,
+                                            manualPasteHelpDismissed: true),
+                       .message(label: "Press ⌘V · Accessibility off", kind: .info))
+        XCTAssertEqual(DictationOverlayState(phase: .finished(.copied(.targetChanged)), elapsed: 0, level: 0),
+                       .message(label: "Press ⌘V · app changed", kind: .info))
+        let secret = "sk-live-not-a-real-secret"
+        for hint in [PasteOutcome.ManualReason.automaticPasteOff.overlayHint,
+                     .accessibilityMissing.overlayHint,
+                     .targetChanged.overlayHint,
+                     .noTarget.overlayHint,
+                     .injectionFailed.overlayHint] {
+            XCTAssertFalse(hint.contains(secret))
+            XCTAssertFalse(hint.contains("token"))
+        }
+    }
+
+    func testInjectionFailureShowsAccessibilityRecovery() {
+        let state = DictationOverlayState(phase: .finished(.copied(.injectionFailed)), elapsed: 0, level: 0)
+        guard case .notice(let notice) = state else {
+            return XCTFail("Injection failure should explain the Accessibility re-toggle")
+        }
+        XCTAssertEqual(notice.actionTitle, "Open Accessibility")
+        XCTAssertTrue(notice.message.contains("Developer ID"))
+        XCTAssertTrue(notice.message.contains("Accessibility"))
+        XCTAssertFalse(notice.message.contains("sk-"))
+    }
 }

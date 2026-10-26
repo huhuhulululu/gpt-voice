@@ -158,6 +158,14 @@ struct HotkeySpec: Codable, Equatable, Hashable {
     /// Compact label, for example "⌃⌥Space".
     var displayLabel: String { keycaps.joined() }
 
+    /// One-line start/stop instruction for Home, Settings, and onboarding.
+    var usageInstruction: String {
+        if isModifierHold {
+            return "Hold \(displayLabel) to record. Release to transcribe and paste."
+        }
+        return "Hold \(displayLabel) to record, then release. A short tap still starts; press again to stop."
+    }
+
     /// Spoken label for VoiceOver, for example "Control Option Space".
     var accessibilityLabel: String {
         if let tap = modifierTapLabel { return tap.name }

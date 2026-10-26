@@ -6,7 +6,8 @@ struct OverlayCard: View {
     let actions: DictationOverlayActions
 
     var body: some View {
-        OverlayHelpContent(notice: notice, dismiss: actions.dismiss)
+        OverlayHelpContent(notice: notice, dismiss: actions.dismiss,
+                           action: notice.actionTitle == nil ? nil : actions.recover)
             .modifier(OverlaySurface(shape: RoundedRectangle(cornerRadius: 14, style: .continuous)))
     }
 }

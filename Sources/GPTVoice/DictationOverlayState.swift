@@ -27,9 +27,14 @@ enum DictationOverlayState: Equatable {
             self = .success(label: "Preview ready")
         case .finished(.copied(.accessibilityMissing)) where !manualPasteHelpDismissed:
             self = .notice(DictationOverlayNotice(title: "Copied to clipboard",
-                message: "Press ⌘V to paste. Allow Accessibility in System Settings for automatic paste."))
-        case .finished(.copied):
-            self = .message(label: "Press ⌘V to paste", kind: .info)
+                message: "Press ⌘V to paste. Allow Accessibility in System Settings for automatic paste.",
+                actionTitle: "Open Accessibility"))
+        case .finished(.copied(.injectionFailed)):
+            self = .notice(DictationOverlayNotice(title: "Copied to clipboard",
+                message: AccessibilityGuidance.overlayStaleGrant,
+                actionTitle: "Open Accessibility"))
+        case .finished(.copied(let reason)):
+            self = .message(label: reason.overlayHint, kind: .info)
         case .finished(.preservedNewerClipboard):
             self = .message(label: "Transcript ready · Copy from menu", kind: .info)
         case .failed(let failure):
@@ -41,7 +46,8 @@ enum DictationOverlayState: Equatable {
         switch self {
         case .hidden: return "hidden"
         case .recording: return "recording"
-        case .working(let label, _): return "working-\(label)"
+        // Transcribing and Pasting share one surface so the spinner does not remount.
+        case .working: return "working"
         case .success(let label): return "success-\(label)"
         case .message(let label, _): return "message-\(label)"
         case .notice: return "manual-paste-help"

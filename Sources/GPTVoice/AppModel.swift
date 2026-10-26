@@ -236,8 +236,8 @@ final class AppModel: NSObject, ObservableObject {
         // Stay on the cached sign-in and permission flags. A full refresh reads
         // auth.json and can wait on Accessibility, which delays the overlay.
         guard connection.isUsable else {
-            fail(DictationFailure(message: "Sign in with ChatGPT in Settings, then start dictation.", recovery: .none,
-                                  overlayMessage: "Sign in to ChatGPT"))
+            fail(DictationFailure(message: "Sign in with ChatGPT in Settings, then start dictation.",
+                                  recovery: .signInThenRetry, overlayMessage: "Sign in to ChatGPT"))
             return
         }
         if microphone == .denied || microphone == .restricted {
@@ -431,6 +431,27 @@ final class AppModel: NSObject, ObservableObject {
 
     func openMicrophoneSettings() { SystemSettingsLink.microphone.open() }
     func openAccessibilitySettings() { SystemSettingsLink.accessibility.open() }
+
+    /// Opens the System Settings pane or sign-in path that matches the current failure.
+    func recoverFromOverlay() {
+        switch phase {
+        case .failed(let failure):
+            switch failure.recovery {
+            case .microphoneSettings:
+                openMicrophoneSettings()
+            case .signInThenRetry:
+                signIn()
+            case .retry:
+                retry()
+            case .none:
+                break
+            }
+        case .finished(.copied(.accessibilityMissing)), .finished(.copied(.injectionFailed)):
+            openAccessibilitySettings()
+        default:
+            break
+        }
+    }
 
     func revealAppInFinder() {
         NSWorkspace.shared.activateFileViewerSelecting([Bundle.main.bundleURL])

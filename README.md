@@ -55,7 +55,7 @@ If macOS shows a verification warning, ignore it and open **System Settings → 
 - Optional sound cues and launch at login. Launch at login starts off.
 - Short result notices that fade away. Local transcript history with copy and delete controls.
 
-History saves successful transcriptions on this Mac with their date, time, and known destination app. Copy any entry, delete one, or clear all.
+History saves successful transcriptions on this Mac with their date, time, and whether they were pasted or copied. Pasted rows name the destination app. Copied rows show why paste was skipped, not tokens or other secrets. Copy any entry, delete one, or clear all.
 Audio goes to ChatGPT for transcription. This is not an offline tool. [Read the privacy notes](docs/PRIVACY.md).
 
 ## Build from source

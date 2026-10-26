@@ -40,7 +40,8 @@ struct DictationPanelView: View {
 
     @ViewBuilder private var content: some View {
         if case .notice(let notice) = presentation.state {
-            OverlayHelpContent(notice: notice, dismiss: actions.dismiss)
+            OverlayHelpContent(notice: notice, dismiss: actions.dismiss,
+                               action: notice.actionTitle == nil ? nil : actions.recover)
         } else {
             HStack(spacing: 10) {
                 OverlayCapsuleContent(state: presentation.state, actions: actions)

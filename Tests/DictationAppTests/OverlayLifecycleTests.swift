@@ -67,7 +67,7 @@ final class OverlayLifecycleTests: XCTestCase {
         fixture.controller.update(for: .finished(.copied(.accessibilityMissing)))
 
         XCTAssertTrue(AppPreferences(defaults: fixture.defaults).manualPasteHelpDismissed)
-        XCTAssertEqual(fixture.controller.displayedState, .message(label: "Press ⌘V to paste", kind: .info))
+        XCTAssertEqual(fixture.controller.displayedState, .message(label: "Press ⌘V · Accessibility off", kind: .info))
         try await waitUntil { !fixture.controller.isVisible }
     }
 
@@ -84,6 +84,19 @@ final class OverlayLifecycleTests: XCTestCase {
         fixture.controller.update(for: .finished(.copied(.accessibilityMissing)))
         try await waitUntil { !fixture.controller.isVisible }
         XCTAssertTrue(fixture.model.preferences.manualPasteHelpDismissed)
+    }
+
+    @MainActor
+    func testInjectionFailureShowsAccessibilityRecoveryHelp() async throws {
+        let fixture = Fixture()
+        defer { fixture.cleanup() }
+        fixture.controller.update(for: .finished(.copied(.injectionFailed)))
+        guard case .notice(let notice) = fixture.controller.displayedState else {
+            return XCTFail("Injection failure should show the Accessibility recovery card")
+        }
+        XCTAssertEqual(notice.actionTitle, "Open Accessibility")
+        XCTAssertTrue(notice.message.contains("Developer ID"))
+        XCTAssertTrue(fixture.controller.displayedState.isHelp)
     }
 
     @MainActor

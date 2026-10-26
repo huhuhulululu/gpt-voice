@@ -15,6 +15,31 @@ enum HistoryDelivery: Equatable, Sendable {
         case .previewed: self = .copied(reason: nil)
         }
     }
+
+    /// Short status on a history row. Never includes transcript text or secrets.
+    var historyCaption: String {
+        switch self {
+        case .pasted(let appName):
+            if let appName, !appName.isEmpty { return "Pasted into \(appName)" }
+            return "Pasted"
+        case .copied(let reason):
+            return reason?.historyCaption ?? "Copied"
+        case .clipboardPreserved:
+            return "Clipboard kept"
+        }
+    }
+
+    /// Extra guidance for the row tooltip. Never includes transcript text or secrets.
+    var historyGuidance: String? {
+        switch self {
+        case .pasted:
+            return nil
+        case .copied(let reason):
+            return reason?.historyGuidance
+        case .clipboardPreserved:
+            return "Your clipboard changed during dictation, so the transcript was not copied."
+        }
+    }
 }
 
 extension HistoryDelivery: Codable {

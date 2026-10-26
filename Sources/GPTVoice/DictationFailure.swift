@@ -70,7 +70,7 @@ struct DictationFailure: Equatable {
     init(captureError error: AudioCaptureError, audioKept: Bool) {
         switch error {
         case .microphoneDenied:
-            self.init(message: "Microphone access is off. Turn it on in System Settings, then start again.",
+            self.init(message: "Microphone access is off. Turn on GPT Voice in System Settings → Privacy & Security → Microphone, then start again.",
                       recovery: .microphoneSettings, overlayMessage: "Microphone access is off")
         case .deviceFailed where audioKept:
             self.init(message: "The microphone stopped. Select Retry to transcribe the audio recorded so far.",
