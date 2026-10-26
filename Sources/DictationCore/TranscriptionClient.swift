@@ -5,11 +5,7 @@ public final class TranscriptionClient {
     private let session: URLSession
 
     public init() {
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.timeoutIntervalForRequest = 90
-        configuration.timeoutIntervalForResource = 110
-        configuration.httpShouldSetCookies = false
-        session = URLSession(configuration: configuration, delegate: NoRedirectDelegate(), delegateQueue: nil)
+        session = HTTPClient.makeSession()
     }
 
     init(session: URLSession) { self.session = session }
@@ -40,7 +36,7 @@ public final class TranscriptionClient {
         request.setValue("Bearer \(credentials.accessToken)", forHTTPHeaderField: "Authorization")
         request.setValue(credentials.accountID, forHTTPHeaderField: "ChatGPT-Account-Id")
         request.setValue("multipart/form-data; boundary=\(multipart.boundary)", forHTTPHeaderField: "Content-Type")
-        request.setValue("GPTVoice", forHTTPHeaderField: "User-Agent")
+        request.setValue(HTTPClient.userAgent, forHTTPHeaderField: "User-Agent")
         request.setValue("codex_dictation", forHTTPHeaderField: "originator")
         request.httpBody = multipart.body
         let (data, response) = try await session.data(for: request)

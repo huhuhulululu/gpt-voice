@@ -20,11 +20,7 @@ public final class OpenAICompatibleClient {
     init(session: URLSession) { self.session = session }
 
     public static func makeSession() -> URLSession {
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.timeoutIntervalForRequest = 90
-        configuration.timeoutIntervalForResource = 110
-        configuration.httpShouldSetCookies = false
-        return URLSession(configuration: configuration, delegate: NoRedirectDelegate(), delegateQueue: nil)
+        HTTPClient.makeSession()
     }
 
     public func transcribe(file: URL, endpoint: OpenAICompatibleEndpoint, apiKey: String?,
@@ -49,14 +45,14 @@ public final class OpenAICompatibleClient {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("multipart/form-data; boundary=\(multipart.boundary)", forHTTPHeaderField: "Content-Type")
-        request.setValue("GPTVoice", forHTTPHeaderField: "User-Agent")
+        request.setValue(HTTPClient.userAgent, forHTTPHeaderField: "User-Agent")
         if let apiKey, !apiKey.isEmpty {
             request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         }
         request.httpBody = multipart.body
         let (data, response) = try await session.data(for: request)
         guard let response = response as? HTTPURLResponse else { throw DictationError.invalidResponse }
-        if response.statusCode == 401 || response.statusCode == 403 { throw DictationError.apiKeyRejected }
+        if response.statusCode == 401 { throw DictationError.apiKeyRejected }
         guard response.statusCode == 200 else { throw DictationError.service(response.statusCode) }
         return try parseTranscript(data)
     }
@@ -70,7 +66,7 @@ public final class OpenAICompatibleClient {
         }
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
-        request.setValue("GPTVoice", forHTTPHeaderField: "User-Agent")
+        request.setValue(HTTPClient.userAgent, forHTTPHeaderField: "User-Agent")
         if let apiKey, !apiKey.isEmpty {
             request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         }
@@ -81,9 +77,12 @@ public final class OpenAICompatibleClient {
             }
             switch response.statusCode {
             case 200..<300:
-                return ConnectionTestResult(ok: true, message: "Connected.")
-            case 401, 403:
+                return ConnectionTestResult(ok: true, message: "Connected. You can dictate now.")
+            case 401:
                 return ConnectionTestResult(ok: false, message: "The server rejected the API key.")
+            case 403:
+                return ConnectionTestResult(ok: false,
+                                           message: "The server refused the request (HTTP 403). Check the URL, then try again.")
             case 404:
                 return ConnectionTestResult(ok: true,
                                             message: "Reached the server. It does not list models; try a short dictation.")

@@ -31,7 +31,8 @@ final class OpenAICompatibleClientTests: XCTestCase {
         XCTAssertEqual(request.url?.absoluteString, "https://api.openai.com/v1/audio/transcriptions")
         XCTAssertEqual(request.httpMethod, "POST")
         XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer test-only-key")
-        XCTAssertEqual(request.value(forHTTPHeaderField: "User-Agent"), "GPTVoice")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "User-Agent"), HTTPClient.userAgent)
+        XCTAssertEqual(HTTPClient.userAgent, "GPTVoice")
         let body = String(decoding: multipart.body, as: UTF8.self)
         XCTAssertTrue(body.contains("name=\"model\""))
         XCTAssertTrue(body.contains("whisper-1"))
@@ -71,10 +72,35 @@ final class OpenAICompatibleClientTests: XCTestCase {
             .testConnection(endpoint: OpenAICompatibleEndpoint(baseURL: "https://api.openai.com/v1", model: "whisper-1"),
                             apiKey: "sk-live-secret")
         XCTAssertTrue(result.ok)
-        XCTAssertEqual(result.message, "Connected.")
+        XCTAssertEqual(result.message, "Connected. You can dictate now.")
         XCTAssertFalse(result.message.contains("sk-"))
         XCTAssertEqual(StubURLProtocol.lastRequest?.url?.absoluteString, "https://api.openai.com/v1/models")
         XCTAssertEqual(StubURLProtocol.lastRequest?.value(forHTTPHeaderField: "Authorization"), "Bearer sk-live-secret")
+    }
+
+    func testConnectionForbiddenDoesNotClaimABadKey() async {
+        StubURLProtocol.response = (403, Data(#"{"error":{"message":"blocked"}}"#.utf8))
+        let result = await OpenAICompatibleClient(session: session())
+            .testConnection(endpoint: OpenAICompatibleEndpoint(baseURL: "https://api.groq.com/openai/v1",
+                                                               model: "whisper-large-v3"),
+                            apiKey: "gsk-test")
+        XCTAssertFalse(result.ok)
+        XCTAssertTrue(result.message.contains("403"))
+        XCTAssertFalse(result.message.lowercased().contains("api key"))
+        XCTAssertFalse(result.message.contains("gsk-"))
+    }
+
+    func testForbiddenResponseDoesNotClaimABadKey() async {
+        let client = client(status: 403, body: #"{"error":{"message":"blocked"}}"#)
+        let multipart = MultipartAudio(audio: Data([1]), filename: "test.wav", contentType: "audio/wav")
+        let url = try! OpenAICompatibleURL.transcriptions(from: "https://api.groq.com/openai/v1")
+        do {
+            _ = try await client.request(multipart, url: url, apiKey: "gsk-test")
+            XCTFail("Expected a denied request")
+        } catch {
+            XCTAssertEqual(error.localizedDescription, DictationError.service(403).localizedDescription)
+            XCTAssertFalse(error.localizedDescription.contains("gsk-"))
+        }
     }
 
     func testURLNormalization() throws {
@@ -82,6 +108,8 @@ final class OpenAICompatibleClientTests: XCTestCase {
                        "https://api.openai.com/v1/audio/transcriptions")
         XCTAssertEqual(try OpenAICompatibleURL.transcriptions(from: "https://api.openai.com/v1/").absoluteString,
                        "https://api.openai.com/v1/audio/transcriptions")
+        XCTAssertEqual(try OpenAICompatibleURL.transcriptions(from: "https://api.groq.com/openai/v1").absoluteString,
+                       "https://api.groq.com/openai/v1/audio/transcriptions")
         XCTAssertEqual(try OpenAICompatibleURL.chatCompletions(from: "http://127.0.0.1:8080/v1").absoluteString,
                        "http://127.0.0.1:8080/v1/chat/completions")
         XCTAssertTrue(OpenAICompatibleURL.isLocalHost("http://127.0.0.1:8080/v1"))

@@ -8,7 +8,7 @@ public enum ChatCleanupClient {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("GPTVoice", forHTTPHeaderField: "User-Agent")
+        request.setValue(HTTPClient.userAgent, forHTTPHeaderField: "User-Agent")
         if let apiKey, !apiKey.isEmpty {
             request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         }
@@ -26,7 +26,7 @@ public enum ChatCleanupClient {
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         let (data, response) = try await session.data(for: request)
         guard let response = response as? HTTPURLResponse else { throw DictationError.invalidResponse }
-        if response.statusCode == 401 || response.statusCode == 403 { throw DictationError.apiKeyRejected }
+        if response.statusCode == 401 { throw DictationError.apiKeyRejected }
         guard response.statusCode == 200 else { throw DictationError.service(response.statusCode) }
         guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let choices = object["choices"] as? [[String: Any]],
