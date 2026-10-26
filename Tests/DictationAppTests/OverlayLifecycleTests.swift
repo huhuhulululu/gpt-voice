@@ -97,6 +97,14 @@ final class OverlayLifecycleTests: XCTestCase {
         XCTAssertEqual(notice.actionTitle, "Open Accessibility")
         XCTAssertTrue(notice.message.contains("Developer ID"))
         XCTAssertTrue(fixture.controller.displayedState.isHelp)
+        XCTAssertFalse(fixture.controller.displayedState.acknowledgesManualPasteHelp)
+
+        try await waitUntil { !fixture.controller.isVisible }
+        XCTAssertFalse(fixture.model.preferences.manualPasteHelpDismissed)
+
+        fixture.controller.update(for: .finished(.copied(.accessibilityMissing)))
+        XCTAssertTrue(fixture.controller.displayedState.isHelp)
+        XCTAssertTrue(fixture.controller.displayedState.acknowledgesManualPasteHelp)
     }
 
     @MainActor

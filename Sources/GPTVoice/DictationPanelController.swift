@@ -98,7 +98,9 @@ final class DictationPanelController: NSObject {
 
     func dismissHelp() {
         guard presentation.state.isHelp else { return }
-        model.preferences.manualPasteHelpDismissed = true
+        if presentation.state.acknowledgesManualPasteHelp {
+            model.preferences.manualPasteHelpDismissed = true
+        }
         generation += 1
         cancelTimer()
         hide()
@@ -128,7 +130,9 @@ final class DictationPanelController: NSObject {
     @objc private func hideTimerFired(_ timer: Timer) {
         guard timer === hideTimer else { return }
         hideTimer = nil
-        if presentation.state.isHelp { model.preferences.manualPasteHelpDismissed = true }
+        if presentation.state.acknowledgesManualPasteHelp {
+            model.preferences.manualPasteHelpDismissed = true
+        }
         hide()
     }
 

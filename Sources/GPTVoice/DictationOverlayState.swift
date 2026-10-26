@@ -28,7 +28,8 @@ enum DictationOverlayState: Equatable {
         case .finished(.copied(.accessibilityMissing)) where !manualPasteHelpDismissed:
             self = .notice(DictationOverlayNotice(title: "Copied to clipboard",
                 message: "Press ⌘V to paste. Allow Accessibility in System Settings. After a Developer ID reinstall, turn GPT Voice off and on there if the switch already looks on.",
-                actionTitle: "Open Accessibility"))
+                actionTitle: "Open Accessibility",
+                acknowledgesManualPaste: true))
         case .finished(.copied(.injectionFailed)):
             self = .notice(DictationOverlayNotice(title: "Copied to clipboard",
                 message: AccessibilityGuidance.overlayStaleGrant,
@@ -58,6 +59,11 @@ enum DictationOverlayState: Equatable {
 
     var isHelp: Bool {
         if case .notice = self { return true }
+        return false
+    }
+
+    var acknowledgesManualPasteHelp: Bool {
+        if case .notice(let notice) = self { return notice.acknowledgesManualPaste }
         return false
     }
 
