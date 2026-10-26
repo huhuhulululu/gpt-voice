@@ -36,7 +36,7 @@ final class HotkeySpecTests: XCTestCase {
 
     func testLeftOptionTapIsAShortcut() throws {
         XCTAssertNil(HotkeySpec.leftOption.problem)
-        XCTAssertTrue(HotkeySpec.leftOption.isModifierTap)
+        XCTAssertTrue(HotkeySpec.leftOption.isModifierHold)
         XCTAssertEqual(HotkeySpec.leftOption.displayLabel, "Left ⌥")
         XCTAssertEqual(HotkeySpec.leftOption.accessibilityLabel, "Left Option")
         XCTAssertEqual(HotkeySpec.leftOption.keycaps, ["Left ⌥"])
@@ -48,11 +48,11 @@ final class HotkeySpecTests: XCTestCase {
         for code in [kVK_RightOption, kVK_Control, kVK_RightControl, kVK_Shift, kVK_RightShift, kVK_Function] {
             let tap = HotkeySpec(keyCode: UInt32(code), modifiers: 0)
             XCTAssertNil(tap.problem)
-            XCTAssertTrue(tap.isModifierTap)
+            XCTAssertTrue(tap.isModifierHold)
             XCTAssertEqual(tap.keycaps.count, 1)
         }
         XCTAssertEqual(HotkeySpec(keyCode: UInt32(kVK_Command), modifiers: 0).problem, .modifierOnly)
-        XCTAssertFalse(HotkeySpec(keyCode: UInt32(kVK_Space), modifiers: UInt32(optionKey)).isModifierTap)
+        XCTAssertFalse(HotkeySpec(keyCode: UInt32(kVK_Space), modifiers: UInt32(optionKey)).isModifierHold)
     }
 
     func testDeviceFlagsDistinguishLeftOptionFromAChord() {

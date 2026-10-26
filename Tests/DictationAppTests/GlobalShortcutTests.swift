@@ -19,7 +19,7 @@ final class GlobalShortcutTests: XCTestCase {
     @MainActor
     func testModifierTapWithoutInputMonitoringDoesNotReplaceTheCurrentShortcut() throws {
         if InputMonitoringPermission.isGranted {
-            throw XCTSkip("Input Monitoring is granted, so a modifier tap can register.")
+            throw XCTSkip("Input Monitoring is granted, so a modifier hold can register.")
         }
         let shortcut = GlobalShortcut(onPress: {})
         defer { shortcut.unregister() }

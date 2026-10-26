@@ -66,7 +66,7 @@ final class ShortcutRecorderNSView: NSView {
         path.lineWidth = isRecording ? 2 : 1
         path.stroke()
 
-        let text = isRecording ? "Press keys, or tap Option. Esc cancels." : "Click to record"
+        let text = isRecording ? "Press keys, or hold Option. Esc cancels." : "Click to record"
         let color: NSColor = !isEnabled ? .tertiaryLabelColor : (isRecording ? .labelColor : .secondaryLabelColor)
         let style = NSMutableParagraphStyle()
         style.alignment = .center

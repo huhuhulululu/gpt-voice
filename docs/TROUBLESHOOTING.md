@@ -43,10 +43,9 @@ Command–Space often belongs to Spotlight or another app.
 Change that competing shortcut, or select a different shortcut in GPT Voice.
 The default is Control–Option–Space.
 
-A tap of one modifier key, such as Left Option, is also a shortcut.
-Press and release it by itself to start, then press it again to stop.
-Holding it with another key keeps the normal modifier behavior.
-That shortcut needs Input Monitoring. Enable GPT Voice in System Settings → Privacy & Security → Input Monitoring, then quit and reopen the app if the tap does not respond.
+Hold one modifier key, such as Left Option, to record. Let go and the transcript is pasted.
+A quick tap does nothing. The microphone opens after a brief hold, so Option can still be used with other keys.
+That shortcut needs Input Monitoring. Enable GPT Voice in System Settings → Privacy & Security → Input Monitoring, then quit and reopen the app if the hold does not respond.
 
 ## Download and installation
 

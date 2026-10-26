@@ -19,7 +19,7 @@ final class AppModel: NSObject, ObservableObject {
     @Published private(set) var hotkeyError: String?
     /// True when the last shortcut failed because a macOS shortcut, such as Spotlight, owns it.
     @Published private(set) var hotkeyBlockedBySystem = false
-    /// True when the chosen shortcut is a modifier tap and Input Monitoring is missing.
+    /// True when the chosen shortcut is a modifier hold and Input Monitoring is missing.
     @Published private(set) var hotkeyNeedsInputMonitoring = false
     @Published private(set) var isCapturingShortcut = false
     @Published private(set) var shortcutTestStatus: ShortcutTestStatus = .idle
@@ -44,8 +44,12 @@ final class AppModel: NSObject, ObservableObject {
     private var meterTimer: Timer?
     private var permissionRefresh: Task<Void, Never>?
     private var isPracticingInOnboarding = false
-    /// Chosen modifier tap waiting for Input Monitoring. Applied once the grant appears.
-    private var pendingModifierTap: HotkeySpec?
+    /// This hold opened the current recording. Release stops it. A chord cancels it.
+    private var modifierHoldOwnsSession = false
+    /// The key was released while the microphone was still starting.
+    private var stopModifierHoldWhenRecording = false
+    /// Chosen modifier hold waiting for Input Monitoring. Applied once the grant appears.
+    private var pendingModifierHold: HotkeySpec?
     private var lastInputMonitoringGrant = InputMonitoringPermission.isGranted
 
     static let installCodexURL = URL(string: "https://developers.openai.com/codex/cli/")!
@@ -63,7 +67,10 @@ final class AppModel: NSObject, ObservableObject {
         super.init()
         audio.onMaximumDuration = { [weak self] url in self?.captureEnded(url: url) }
         audio.onFailure = { [weak self] error, url in self?.captureFailed(error, url: url) }
-        shortcut = GlobalShortcut { [weak self] in self?.receiveGlobalShortcut() }
+        shortcut = GlobalShortcut(onPress: { [weak self] in self?.receiveGlobalShortcut() },
+                                  onModifierHoldBegan: { [weak self] in self?.beginModifierHold() },
+                                  onModifierHoldEnded: { [weak self] in self?.endModifierHold() },
+                                  onModifierHoldCancelled: { [weak self] in self?.interruptModifierHold() })
         refreshStatus()
     }
 
@@ -97,7 +104,7 @@ final class AppModel: NSObject, ObservableObject {
 
     /// Registers the saved shortcut. Call once after launch.
     func activate() {
-        if preferences.hotkey.isModifierTap, !InputMonitoringPermission.isGranted {
+        if preferences.hotkey.isModifierHold, !InputMonitoringPermission.isGranted {
             _ = InputMonitoringPermission.request()
         }
         do {
@@ -105,7 +112,7 @@ final class AppModel: NSObject, ObservableObject {
             hotkeyError = nil
             hotkeyBlockedBySystem = false
             hotkeyNeedsInputMonitoring = false
-            pendingModifierTap = nil
+            pendingModifierHold = nil
         } catch {
             noteShortcutRegistrationFailure(error, spec: preferences.hotkey)
         }
@@ -118,7 +125,7 @@ final class AppModel: NSObject, ObservableObject {
         microphone = PermissionStatus(AudioCapture.microphoneStatus)
         accessibilityTrusted = AccessibilityPermission.check()
         launchAtLogin = LaunchAtLoginStatus.current()
-        retryPendingModifierTapIfGranted()
+        retryPendingModifierHoldIfGranted()
         recheckPermissionsAfterReturn()
     }
 
@@ -134,23 +141,23 @@ final class AppModel: NSObject, ObservableObject {
                 let accessibility = AccessibilityPermission.check()
                 if self.microphone != microphone { self.microphone = microphone }
                 if self.accessibilityTrusted != accessibility { self.accessibilityTrusted = accessibility }
-                self.retryPendingModifierTapIfGranted()
+                self.retryPendingModifierHoldIfGranted()
             }
         }
     }
 
-    /// Registers a modifier tap that was chosen before Input Monitoring was granted.
-    private func retryPendingModifierTapIfGranted() {
+    /// Registers a modifier hold that was chosen before Input Monitoring was granted.
+    private func retryPendingModifierHoldIfGranted() {
         let granted = InputMonitoringPermission.isGranted
         let becameGranted = granted && !lastInputMonitoringGrant
-        guard becameGranted, let pending = pendingModifierTap else {
+        guard becameGranted, let pending = pendingModifierHold else {
             lastInputMonitoringGrant = granted
             return
         }
         // Keep the edge while the recorder is open, and try again after it closes.
         guard !isCapturingShortcut else { return }
         lastInputMonitoringGrant = true
-        pendingModifierTap = nil
+        pendingModifierHold = nil
         _ = setHotkey(pending)
     }
 
@@ -162,9 +169,9 @@ final class AppModel: NSObject, ObservableObject {
         switch registration {
         case .systemShortcut:
             hotkeyBlockedBySystem = true
-        case .inputMonitoring where spec.isModifierTap:
+        case .inputMonitoring where spec.isModifierHold:
             hotkeyNeedsInputMonitoring = true
-            pendingModifierTap = spec
+            pendingModifierHold = spec
         default:
             break
         }
@@ -253,7 +260,45 @@ final class AppModel: NSObject, ObservableObject {
             phase = .recording
             startMeter()
             cue(.start)
+            if stopModifierHoldWhenRecording {
+                stopModifierHoldWhenRecording = false
+                stopDictation()
+            }
         }
+    }
+
+    /// Starts dictation after a modifier key has been held on its own.
+    func beginModifierHold() {
+        switch shortcutTestStatus {
+        case .listening, .received:
+            shortcutTestStatus = .received
+            return
+        case .idle, .unavailable:
+            break
+        }
+        guard canStart, !isCapturingShortcut else { return }
+        modifierHoldOwnsSession = true
+        stopModifierHoldWhenRecording = false
+        startDictation()
+    }
+
+    /// Stops the recording started by the hold and sends it for transcription.
+    func endModifierHold() {
+        guard modifierHoldOwnsSession else { return }
+        modifierHoldOwnsSession = false
+        if phase == .recording {
+            stopDictation()
+        } else if phase == .preparing {
+            stopModifierHoldWhenRecording = true
+        }
+    }
+
+    /// Drops a hold that turned into a normal modifier chord. Nothing is pasted.
+    func interruptModifierHold() {
+        guard modifierHoldOwnsSession else { return }
+        modifierHoldOwnsSession = false
+        stopModifierHoldWhenRecording = false
+        if phase == .preparing || phase == .recording { cancel() }
     }
 
     func stopDictation() {
@@ -264,6 +309,8 @@ final class AppModel: NSObject, ObservableObject {
     /// Cancels recording or transcription. Deletes the audio. A stale result never pastes.
     /// Paste delivery is short and cannot be cancelled, so it keeps its clipboard lease.
     func cancel() {
+        modifierHoldOwnsSession = false
+        stopModifierHoldWhenRecording = false
         let pasting = phase == .pasting
         if !pasting { generation += 1 }
         operation?.cancel()
@@ -492,11 +539,11 @@ final class AppModel: NSObject, ObservableObject {
             return false
         }
         endShortcutTest()
-        if spec.isModifierTap, !InputMonitoringPermission.isGranted {
+        if spec.isModifierHold, !InputMonitoringPermission.isGranted {
             if !InputMonitoringPermission.request() {
                 hotkeyBlockedBySystem = false
                 hotkeyNeedsInputMonitoring = true
-                pendingModifierTap = spec
+                pendingModifierHold = spec
                 hotkeyError = GlobalShortcut.RegistrationError.inputMonitoring.errorDescription
                 return false
             }
@@ -505,7 +552,7 @@ final class AppModel: NSObject, ObservableObject {
             hotkeyBlockedBySystem = false
             hotkeyNeedsInputMonitoring = false
             try shortcut?.replace(with: spec)
-            pendingModifierTap = nil
+            pendingModifierHold = nil
             preferences.hotkey = spec
             hotkeyError = nil
             return true
@@ -521,7 +568,7 @@ final class AppModel: NSObject, ObservableObject {
     /// Tries Command–Space. The recorder cannot capture it while macOS owns it, so this preset exists.
     func useCommandSpace() { setHotkey(.commandSpace) }
 
-    /// Uses a tap of the left Option key. The second tap stops dictation.
+    /// Records while the left Option key is held. Releasing it pastes the transcript.
     func useLeftOption() { setHotkey(.leftOption) }
 
     func openKeyboardShortcutsSettings() { SystemSettingsLink.keyboardShortcuts.open() }
@@ -616,6 +663,8 @@ final class AppModel: NSObject, ObservableObject {
     }
 
     private func fail(_ failure: DictationFailure) {
+        modifierHoldOwnsSession = false
+        stopModifierHoldWhenRecording = false
         operation = nil
         if !failure.keepsAudio { paste.endSession() }
         phase = .failed(failure)
