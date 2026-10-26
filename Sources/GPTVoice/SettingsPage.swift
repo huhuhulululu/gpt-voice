@@ -39,10 +39,12 @@ enum SettingsPage: String, CaseIterable, Identifiable {
     /// Shortcut uses the live hotkey instruction from SettingsView instead.
     var intro: String? {
         switch self {
-        case .preferences: return "Automatic paste, sound cues, and login."
-        case .transcription: return "Provider, cleanup, and vocabulary."
+        case .history: return "Saved on this Mac. Pasted rows name the app; copied rows say why paste was skipped."
+        case .preferences: return "Automatic paste, sound, haptics, and login."
+        case .transcription: return "Codex, Groq, or any OpenAI-compatible server. Cleanup stays on this Mac."
+        case .appearance: return "Theme, accent, and where the recording bar sits."
         case .privacy: return "Microphone, Accessibility, Input Monitoring, and what this app stores."
-        case .home, .history, .shortcuts, .appearance: return nil
+        case .home, .shortcuts: return nil
         }
     }
 }

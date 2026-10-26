@@ -8,7 +8,7 @@ struct PrivacyPage: View {
         VStack(alignment: .leading, spacing: 24) {
             SettingsGroup(title: "Your data") {
                 fact("Audio", model.preferences.usesOpenAICompatible
-                     ? "Sent to your configured transcription server."
+                     ? "Sent to \(model.preferences.transcriptionHostTitle)."
                      : "Sent to ChatGPT for transcription.")
                 fact("Recordings", "Temporary files on this Mac.",
                      details: "Deleted after a successful transcription or Cancel. A failed recording is kept for Retry until you quit.")
