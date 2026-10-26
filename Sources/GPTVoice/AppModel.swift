@@ -238,6 +238,7 @@ final class AppModel: NSObject, ObservableObject {
         discardFailedAudio()
         generation += 1
         let current = generation
+        if !practice { paste.noteIntendedTarget() }
         phase = .preparing
         operation = Task {
             await paste.waitForLease()
@@ -322,6 +323,7 @@ final class AppModel: NSObject, ObservableObject {
         discardFailedAudio()
         guard !pasting else { return }
         paste.endSession()
+        paste.discardIntendedTarget()
         isPracticeSession = false
         phase = .idle
     }
@@ -332,6 +334,7 @@ final class AppModel: NSObject, ObservableObject {
         failedAudio = nil
         generation += 1
         let current = generation
+        if !isPracticeSession { paste.noteIntendedTarget() }
         phase = .preparing
         operation = Task {
             await paste.waitForLease()
@@ -358,6 +361,7 @@ final class AppModel: NSObject, ObservableObject {
         isPracticeSession = false
         generation += 1
         let current = generation
+        paste.noteIntendedTarget()
         phase = .pasting
         operation = Task {
             await paste.waitForLease()
@@ -377,6 +381,7 @@ final class AppModel: NSObject, ObservableObject {
         discardFailedAudio()
         generation += 1
         let current = generation
+        if !forPractice { paste.noteIntendedTarget() }
         phase = .preparing
         operation = Task {
             await paste.waitForLease()
