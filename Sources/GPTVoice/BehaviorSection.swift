@@ -44,9 +44,15 @@ struct BehaviorSection: View {
                 }
             }
             SettingsRow(title: "Sound cues",
-                        detail: "A short click when recording starts and when you release.") {
+                        detail: "Quiet clicks on start and release. Off until you turn them on.") {
                 AppToggle(label: "Sound cues",
                           isOn: Binding(get: { preferences.soundCues }, set: { model.setSoundCues($0) }))
+                    .disabled(!model.canChangeSettings)
+            }
+            SettingsRow(title: "Haptic taps",
+                        detail: "A light trackpad tap on start, release, and failure. Off until you turn them on.") {
+                AppToggle(label: "Haptic taps",
+                          isOn: Binding(get: { preferences.hapticCues }, set: { model.setHapticCues($0) }))
                     .disabled(!model.canChangeSettings)
             }
             SettingsRow(title: "Open at login", showsDivider: showsLoginIssue) {
