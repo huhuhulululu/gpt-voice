@@ -32,8 +32,8 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         let symbol: String
         let description: String
         switch phase {
-        case .recording: symbol = "mic.fill"; description = "\(AppBrand.displayName), listening"
-        case .preparing, .transcribing, .pasting: symbol = "mic.circle"; description = "\(AppBrand.displayName), working"
+        case .preparing, .recording: symbol = "mic.fill"; description = "\(AppBrand.displayName), listening"
+        case .transcribing, .pasting: symbol = "mic.circle"; description = "\(AppBrand.displayName), working"
         case .failed: symbol = "mic.slash"; description = "\(AppBrand.displayName), needs attention"
         case .idle, .finished: symbol = "mic"; description = AppBrand.displayName
         }
@@ -42,6 +42,14 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         image?.isTemplate = true
         statusItem.button?.image = image
         statusItem.button?.toolTip = description
+        switch phase {
+        case .recording:
+            statusItem.button?.contentTintColor = .systemRed
+        case .failed:
+            statusItem.button?.contentTintColor = .systemOrange
+        default:
+            statusItem.button?.contentTintColor = nil
+        }
     }
 
     func menuNeedsUpdate(_ menu: NSMenu) {
@@ -65,6 +73,8 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
                 menu.addItem(item("Microphone Settings…", #selector(openMicrophone), enabled: true))
             case .signInThenRetry:
                 menu.addItem(item("Sign In to ChatGPT…", #selector(signIn), enabled: true))
+            case .transcriptionSettings:
+                menu.addItem(item("Transcription Settings…", #selector(openTranscription), enabled: true))
             case .retry, .none:
                 break
             }
@@ -120,6 +130,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     @objc private func showSettings() { windows.showSettings() }
     @objc private func openInputMonitoring() { model.openInputMonitoringSettings() }
     @objc private func openMicrophone() { model.openMicrophoneSettings() }
+    @objc private func openTranscription() { model.openTranscriptionSettings() }
     @objc private func openAccessibility() { model.openAccessibilitySettings() }
     @objc private func signIn() { model.signIn() }
     @objc private func showOnboarding() { windows.showOnboarding() }
