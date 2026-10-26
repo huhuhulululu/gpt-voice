@@ -36,6 +36,7 @@ After a successful automatic paste, GPT Voice restores the previous clipboard. T
 Turn **Paste automatically** off if you want the text to stay on the clipboard.
 Paste can fall back to copy if the destination app, Accessibility, or clipboard changes during a recording.
 This protects newer clipboard content and avoids sending text to the wrong app.
+History records `pasted` on success, or `copied` with a `reason` (`automaticPasteOff`, `accessibilityMissing`, `targetChanged`, `noTarget`, `injectionFailed`) when automatic paste is skipped.
 Use **Copy Last Transcript** from the menu bar to recover the last result.
 
 ## Shortcut

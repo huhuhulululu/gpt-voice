@@ -32,6 +32,30 @@ struct PasteTarget {
         frontmostPID == capturedPID
     }
 
+    /// This process is frontmost. The overlay or an activation can do that without the user switching apps.
+    static func isOwnAppFrontmost(
+        frontmostPID: pid_t? = NSWorkspace.shared.frontmostApplication?.processIdentifier,
+        ownPID: pid_t = ProcessInfo.processInfo.processIdentifier
+    ) -> Bool {
+        frontmostPID == ownPID
+    }
+
+    /// Own-app foreground is not a user app-switch. A different third-party app is.
+    static func shouldAttemptAutomaticDelivery(capturedPID: pid_t, frontmostPID: pid_t?, ownPID: pid_t) -> Bool {
+        guard let frontmostPID else { return false }
+        return frontmostPID == capturedPID || frontmostPID == ownPID
+    }
+
+    /// Raises the captured window and activates the app so insert or Command–V can land.
+    @discardableResult
+    func activateForDelivery() -> Bool {
+        if let focusedWindow {
+            AXUIElementPerformAction(focusedWindow, kAXRaiseAction as CFString)
+        }
+        return NSRunningApplication(processIdentifier: processID)?
+            .activate(options: [.activateIgnoringOtherApps]) ?? false
+    }
+
     /// Inserts text at the caret. Does not read or replace the rest of the field, and does not use the clipboard.
     static func insertSelectedText(_ text: String, into pid: pid_t) -> Bool {
         guard !text.isEmpty, let element = focusedElement(of: pid) else { return false }

@@ -14,7 +14,7 @@ The implementation sends a request shaped like the transcription request observe
 `Sources/GPTVoice` owns recording, shortcuts, paste delivery, settings and the recording pill.
 `Tests` covers request behavior, empty speech, shortcut ownership, practice mode, overlay lifecycle, and clipboard restore after automatic paste.
 
-Automatic paste first tries an Accessibility insert at the caret. If that is not available it writes the transcript, posts Command–V, then restores the previous clipboard when the app still owns that text. A clipboard helper that rewrites the same transcript does not leave it sticky. Manual paste, missing Accessibility, a changed frontmost app, or a failed keystroke keep the transcript for Command–V and say so. A clipboard that changed during recording is left alone.
+Automatic paste first tries an Accessibility insert at the caret. If that is not available it writes the transcript, posts Command–V, then restores the previous clipboard when the app still owns that text. A clipboard helper that rewrites the same transcript does not leave it sticky. If GPT Voice itself is frontmost (overlay or activation), delivery re-activates the captured target and still inserts or pastes. Manual paste, missing Accessibility, a different third-party app in front, or a failed keystroke keep the transcript for Command–V and record that `ManualReason` in history. A clipboard that changed during recording is left alone.
 
 Sign-in and token renewal use the installed Codex CLI app-server protocol.
 GPT Voice reads the resulting file-backed ChatGPT session. API-key authentication is not supported.

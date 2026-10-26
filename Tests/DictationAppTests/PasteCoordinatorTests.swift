@@ -113,6 +113,52 @@ final class PasteCoordinatorTests: XCTestCase {
         XCTAssertEqual(pasteboard.string(forType: .string), "dictated text")
     }
 
+    func testOwnAppFrontmostActivatesTheCapturedTargetAndPastes() async {
+        let pasteboard = NSPasteboard.withUniqueName()
+        defer { pasteboard.releaseGlobally() }
+        pasteboard.clearContents()
+        pasteboard.setString("keep me", forType: .string)
+        var activatedPID: pid_t?
+        var environment = PasteCoordinator.Environment.test(pasteboard: pasteboard, insert: false, inject: true)
+        environment.isStillFrontmost = { _ in false }
+        environment.isOwnAppFrontmost = { true }
+        environment.activateTarget = { target in
+            activatedPID = target.processID
+            return true
+        }
+        let coordinator = PasteCoordinator(pasteboard: pasteboard, environment: environment)
+
+        coordinator.beginSession(target: .fixture(pid: 99))
+        let outcome = await coordinator.deliver(text: "dictated text", automaticPaste: true)
+
+        XCTAssertEqual(outcome, .pasted(appName: "Notes"))
+        XCTAssertEqual(activatedPID, 99)
+        XCTAssertEqual(pasteboard.string(forType: .string), "keep me")
+    }
+
+    func testOwnAppFrontmostInsertsWithoutTouchingTheClipboard() async {
+        let pasteboard = NSPasteboard.withUniqueName()
+        defer { pasteboard.releaseGlobally() }
+        pasteboard.clearContents()
+        pasteboard.setString("keep me", forType: .string)
+        var activated = false
+        var environment = PasteCoordinator.Environment.test(pasteboard: pasteboard, insert: true, inject: false)
+        environment.isStillFrontmost = { _ in false }
+        environment.isOwnAppFrontmost = { true }
+        environment.activateTarget = { _ in
+            activated = true
+            return true
+        }
+        let coordinator = PasteCoordinator(pasteboard: pasteboard, environment: environment)
+
+        coordinator.beginSession(target: .fixture(pid: 99))
+        let outcome = await coordinator.deliver(text: "dictated text", automaticPaste: true)
+
+        XCTAssertEqual(outcome, .pasted(appName: "Notes"))
+        XCTAssertTrue(activated)
+        XCTAssertEqual(pasteboard.string(forType: .string), "keep me")
+    }
+
     func testCancelBeforeDeliveryLeavesTheClipboardAlone() {
         let pasteboard = NSPasteboard.withUniqueName()
         defer { pasteboard.releaseGlobally() }
@@ -136,9 +182,12 @@ private extension PasteCoordinator.Environment {
     static func test(pasteboard: NSPasteboard, insert: Bool, inject: @escaping (NSPasteboard) -> Bool) -> Self {
         var environment = PasteCoordinator.Environment.live
         environment.restoreDelay = 0
+        environment.activationDelay = 0
         environment.isAccessibilityTrusted = { true }
         environment.captureFrontmost = { .fixture(pid: 99) }
         environment.isStillFrontmost = { _ in true }
+        environment.isOwnAppFrontmost = { false }
+        environment.activateTarget = { _ in false }
         environment.insertSelectedText = { _, _ in insert }
         environment.injectPaste = { inject(pasteboard) }
         return environment

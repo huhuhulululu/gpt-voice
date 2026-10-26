@@ -10,19 +10,28 @@ final class PasteCoordinator {
     /// Time that the target app gets to read the pasteboard before the old content returns.
     nonisolated static let restoreDelay: UInt64 = 750_000_000
 
+    /// Time to wait after re-activating a target that this app briefly covered.
+    nonisolated static let activationDelay: UInt64 = 80_000_000
+
     struct Environment {
         var restoreDelay: UInt64
+        var activationDelay: UInt64
         var isAccessibilityTrusted: () -> Bool
         var captureFrontmost: () -> PasteTarget?
         var isStillFrontmost: (PasteTarget) -> Bool
+        var isOwnAppFrontmost: () -> Bool
+        var activateTarget: (PasteTarget) -> Bool
         var insertSelectedText: (String, pid_t) -> Bool
         var injectPaste: () -> Bool
 
         static let live = Environment(
             restoreDelay: PasteCoordinator.restoreDelay,
+            activationDelay: PasteCoordinator.activationDelay,
             isAccessibilityTrusted: { AccessibilityPermission.check() },
             captureFrontmost: { PasteTarget.captureFrontmost() },
             isStillFrontmost: { $0.isStillFrontmost() },
+            isOwnAppFrontmost: { PasteTarget.isOwnAppFrontmost() },
+            activateTarget: { $0.activateForDelivery() },
             insertSelectedText: { PasteTarget.insertSelectedText($0, into: $1) },
             injectPaste: { PasteCoordinator.postCommandV() }
         )
@@ -93,10 +102,11 @@ final class PasteCoordinator {
 
     private func performDelivery(text: String, automaticPaste: Bool) async -> PasteOutcome {
         let insertable = TranscriptText.forAutomaticPaste(text)
-        if automaticPaste,
-           environment.isAccessibilityTrusted(),
-           let target, environment.isStillFrontmost(target),
-           environment.insertSelectedText(insertable, target.processID) {
+        var ready = false
+        if automaticPaste, environment.isAccessibilityTrusted() {
+            ready = await prepareCapturedTarget()
+        }
+        if ready, let target, environment.insertSelectedText(insertable, target.processID) {
             return .pasted(appName: target.appName)
         }
 
@@ -110,7 +120,7 @@ final class PasteCoordinator {
             reason = .accessibilityMissing
         } else if target == nil || snapshot == nil {
             reason = .noTarget
-        } else if !environment.isStillFrontmost(target!) {
+        } else if !ready {
             reason = .targetChanged
         } else {
             reason = nil
@@ -128,6 +138,19 @@ final class PasteCoordinator {
         try? await Task.sleep(nanoseconds: environment.restoreDelay)
         restoreClipboardIfStillOwned(written: insertable, ownedChange: ownedChange)
         return .pasted(appName: target?.appName)
+    }
+
+    /// The captured app can receive the transcript if it is still frontmost, or if this
+    /// app took the foreground (overlay / activation) and the target can be restored.
+    private func prepareCapturedTarget() async -> Bool {
+        guard let target else { return false }
+        if environment.isStillFrontmost(target) { return true }
+        guard environment.isOwnAppFrontmost() else { return false }
+        _ = environment.activateTarget(target)
+        if environment.activationDelay > 0 {
+            try? await Task.sleep(nanoseconds: environment.activationDelay)
+        }
+        return true
     }
 
     private func restoreClipboardIfStillOwned(written: String, ownedChange: Int) {

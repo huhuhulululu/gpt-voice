@@ -4,7 +4,7 @@ import Foundation
 enum PasteOutcome: Equatable {
     /// The practice result is visible in the app. The clipboard was not changed.
     case previewed
-    enum ManualReason: Equatable {
+    enum ManualReason: String, Codable, Equatable, Sendable {
         case automaticPasteOff
         case accessibilityMissing
         case targetChanged
