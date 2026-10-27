@@ -6,6 +6,7 @@ struct TranscriptionPage: View {
     @ObservedObject var model: AppModel
     @ObservedObject var preferences: AppPreferences
     @State private var apiKeyDraft = ""
+    @State private var chatKeyDraft = ""
 
     init(model: AppModel) {
         self.model = model
@@ -127,27 +128,56 @@ struct TranscriptionPage: View {
     }
 
     private var chatGroup: some View {
-        SettingsGroup(footnote: "Off by default. Uses an OpenAI-compatible chat endpoint. A failure keeps the local cleanup.") {
-            SettingsRow(title: "LLM cleanup",
-                        detail: "Sends the transcript to a chat model. Not used for speech-to-text.") {
-                AppToggle(label: "LLM cleanup", isOn: $preferences.chatCleanup)
+        SettingsGroup(title: "Chat cleanup",
+                      footnote: "Runs after Transcription and your word list, only when you dictate. It has its own API key in the Keychain, separate from the Transcription key; the Transcription key is reused only when both URLs are on the same host. If the chat server fails or is slow, the local result is pasted.") {
+            SettingsRow(title: "LLM correction",
+                        detail: "Sends each transcript and your word list to a chat model that fixes misheard words. Not used for speech-to-text.",
+                        showsDivider: preferences.chatCleanup) {
+                AppToggle(label: "LLM correction", isOn: $preferences.chatCleanup)
                     .disabled(!model.canChangeSettings)
             }
             if preferences.chatCleanup {
-                SettingsRow(title: "Chat model") {
-                    AppTextField(label: "Chat model", text: $preferences.chatCleanupModel,
-                                 placeholder: "gpt-4o-mini")
+                SettingsRow(title: "Chat base URL",
+                            detail: "CPA: \(AppPreferences.defaultChatCleanupBaseURL). Blank reuses the Transcription URL.") {
+                    AppTextField(label: "Chat base URL", text: $preferences.chatCleanupBaseURL,
+                                 placeholder: AppPreferences.defaultChatCleanupBaseURL)
                         .disabled(!model.canChangeSettings)
                 }
-                SettingsRow(title: "Chat base URL",
-                            detail: "Leave blank to reuse the transcription server URL.",
-                            showsDivider: false) {
-                    AppTextField(label: "Chat base URL", text: $preferences.chatCleanupBaseURL,
-                                 placeholder: preferences.openAIBaseURL)
+                SettingsRow(title: "Chat model") {
+                    AppTextField(label: "Chat model", text: $preferences.chatCleanupModel,
+                                 placeholder: AppPreferences.defaultChatCleanupModel)
                         .disabled(!model.canChangeSettings)
+                }
+                SettingsRow(title: "Chat API key", detail: chatKeyDetail, showsDivider: false) {
+                    HStack(spacing: 8) {
+                        AppTextField(label: "Chat API key", text: $chatKeyDraft, placeholder: "CPA key", secure: true)
+                            .disabled(!model.canChangeSettings)
+                        Button("Save") {
+                            model.saveChatCleanupKey(chatKeyDraft)
+                            chatKeyDraft = ""
+                        }
+                        .buttonStyle(AppButtonStyle(kind: .secondary, small: true))
+                        .disabled(!model.canChangeSettings || chatKeyDraft.trimmingCharacters(in: .whitespaces).isEmpty)
+                        if model.chatKeyPresent {
+                            Button("Clear") { model.clearChatCleanupKey() }
+                                .buttonStyle(AppButtonStyle(kind: .quiet, small: true))
+                                .disabled(!model.canChangeSettings)
+                        }
+                    }
                 }
             }
         }
+    }
+
+    private var chatKeyDetail: String {
+        if model.chatKeyPresent { return "A chat key is saved on this Mac. Enter a new one to replace it." }
+        if OpenAICompatibleURL.isLocalHost(preferences.chatCleanupEndpoint) { return "Optional for a local server." }
+        if preferences.usesOpenAICompatible,
+           ChatCleanupClient.canShareTranscriptionKey(chatBaseURL: preferences.chatCleanupEndpoint,
+                                                      transcriptionBaseURL: preferences.openAIBaseURL) {
+            return "Same host as Transcription, so its key is used unless you save one here."
+        }
+        return "Required. This is your CPA key, not the Groq key. Without it, correction is skipped."
     }
 
     private func languageChip(_ title: String, value: String? = nil) -> some View {

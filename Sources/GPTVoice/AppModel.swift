@@ -33,6 +33,8 @@ final class AppModel: NSObject, ObservableObject {
     @Published private(set) var practiceTranscript: String?
     @Published private(set) var isPracticeSession = false
     @Published private(set) var openAIKeyPresent = false
+    /// The chat-cleanup key has its own Keychain slot, separate from the transcription key.
+    @Published private(set) var chatKeyPresent = false
     @Published private(set) var connectionTest: ConnectionTestResult?
     @Published private(set) var isTestingConnection = false
     /// Settings opens this page when set, then clears it.
@@ -41,6 +43,7 @@ final class AppModel: NSObject, ObservableObject {
     private let audio: AudioCapture
     private let paste: PasteCoordinator
     private let transcribeAudio: (@Sendable (URL) async throws -> String)?
+    private let injectedChatSession: URLSession?
     let secrets: SecretStore
     private var shortcut: GlobalShortcut?
     private var generation = 0
@@ -69,6 +72,7 @@ final class AppModel: NSObject, ObservableObject {
          lexicon: LexiconLibrary? = nil,
          pasteEnvironment: PasteCoordinator.Environment = .live,
          secrets: SecretStore = KeychainSecretStore(),
+         chatSession: URLSession? = nil,
          transcribeAudio: (@Sendable (URL) async throws -> String)? = nil) {
         let preferences = preferences ?? AppPreferences()
         let history = history ?? TranscriptionHistory()
@@ -80,6 +84,7 @@ final class AppModel: NSObject, ObservableObject {
             legacyReplacements: preferences.vocabularyReplacements)
         self.secrets = secrets
         self.transcribeAudio = transcribeAudio
+        injectedChatSession = chatSession
         audio = AudioCapture()
         paste = PasteCoordinator(pasteboard: pasteboard ?? .general, environment: pasteEnvironment)
         super.init()
@@ -744,6 +749,23 @@ final class AppModel: NSObject, ObservableObject {
         connectionTest = nil
     }
 
+    func saveChatCleanupKey(_ draft: String) {
+        let key = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard canChangeSettings, !key.isEmpty else { return }
+        Task {
+            await writeSecret(key, for: KeychainSecretStore.chatAPIKeyAccount)
+            refreshSecretFlags()
+        }
+    }
+
+    func clearChatCleanupKey() {
+        guard canChangeSettings else { return }
+        Task {
+            await writeSecret(nil, for: KeychainSecretStore.chatAPIKeyAccount)
+            refreshSecretFlags()
+        }
+    }
+
     func clearOpenAIKey() {
         guard canChangeSettings else { return }
         connectionTest = nil
@@ -781,6 +803,7 @@ final class AppModel: NSObject, ObservableObject {
         // Presence only. Reading the item here would put a Keychain sheet up while
         // the menu-bar menu is tracking, which eats password keystrokes.
         openAIKeyPresent = secrets.containsSecret(for: KeychainSecretStore.apiKeyAccount)
+        chatKeyPresent = secrets.containsSecret(for: KeychainSecretStore.chatAPIKeyAccount)
     }
 
     /// A read can wait on a SecurityAgent sheet. It runs off the main thread, one at a time, with the
@@ -814,11 +837,24 @@ final class AppModel: NSObject, ObservableObject {
         }
     }
 
-    private func chatCleanupAPIKey(fallback: String?) async -> String? {
-        if let key = await readSecret(KeychainSecretStore.chatAPIKeyAccount).value { return key }
-        if let fallback { return fallback }
-        guard !preferences.usesOpenAICompatible else { return nil }
-        return await readSecret(KeychainSecretStore.apiKeyAccount).value
+    /// The dedicated chat key. The transcription key is used only when chat runs on the same host,
+    /// so a Groq key is never sent to another server.
+    private func chatCleanupAPIKey(transcriptionKey: String?, chatBaseURL: String) async -> String? {
+        if secrets.containsSecret(for: KeychainSecretStore.chatAPIKeyAccount),
+           let key = await readSecret(KeychainSecretStore.chatAPIKeyAccount).value, !key.isEmpty {
+            return key
+        }
+        guard preferences.usesOpenAICompatible,
+              ChatCleanupClient.canShareTranscriptionKey(chatBaseURL: chatBaseURL,
+                                                         transcriptionBaseURL: preferences.openAIBaseURL) else {
+            return nil
+        }
+        return transcriptionKey
+    }
+
+    /// Injected transcribers are test doubles: they reach a chat server only through an injected session.
+    private var chatSession: URLSession? {
+        injectedChatSession ?? (transcribeAudio == nil ? HTTPClient.shared : nil)
     }
 
     /// Returns the text replacements saw (for rule hit counts) and the text to deliver.
@@ -839,16 +875,14 @@ final class AppModel: NSObject, ObservableObject {
                 apiKey: apiKey
             )
         }
-        let chat: (model: String, baseURL: String, apiKey: String?)?
-        if preferences.chatCleanup {
-            let base = preferences.chatCleanupBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
-            chat = (
-                preferences.chatCleanupModel,
-                base.isEmpty ? preferences.openAIBaseURL : base,
-                await chatCleanupAPIKey(fallback: apiKey)
-            )
-        } else {
-            chat = nil
+        var chat: (model: String, baseURL: String, apiKey: String?)?
+        if preferences.chatCleanup, chatSession != nil {
+            let base = preferences.chatCleanupEndpoint
+            let key = await chatCleanupAPIKey(transcriptionKey: apiKey, chatBaseURL: base)
+            // Without a key a hosted chat server can only answer 401; skip the round trip.
+            if key != nil || OpenAICompatibleURL.isLocalHost(base) {
+                chat = (preferences.chatCleanupModel, base, key)
+            }
         }
         let processed = await TranscriptPostProcessor.applyReporting(
             raw,
@@ -858,7 +892,8 @@ final class AppModel: NSObject, ObservableObject {
             chineseScript: preferences.effectiveChineseScript,
             prompt: prompt,
             chat: chat,
-            session: HTTPClient.shared
+            chatContext: lexicon.chatContext(),
+            session: chatSession ?? HTTPClient.shared
         )
         return (processed.beforeReplacements, processed.text)
     }

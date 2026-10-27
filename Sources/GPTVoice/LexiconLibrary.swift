@@ -39,6 +39,15 @@ final class LexiconLibrary: ObservableObject {
         lexicon.transcriptionPrompt(language: language, script: script)
     }
 
+    /// Prompt terms plus the most used corrections, for the chat corrector.
+    func chatContext(now: Date = Date()) -> ChatCleanupContext {
+        let corrections = lexicon.replacements
+            .sorted { ($0.hits, $0.lastUsed ?? $0.addedAt) > ($1.hits, $1.lastUsed ?? $1.addedAt) }
+            .prefix(ChatCleanupContext.maxCorrections)
+            .map(\.replacement)
+        return ChatCleanupContext(terms: lexicon.promptTerms(now: now), corrections: Array(corrections))
+    }
+
     @discardableResult
     func addTerm(_ text: String) -> Lexicon.Change {
         let change = lexicon.addTerm(text)

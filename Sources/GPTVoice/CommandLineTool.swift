@@ -30,6 +30,7 @@ enum CommandLineTool {
                 "bundleIdentifier": Bundle.main.bundleIdentifier ?? "",
             ],
             "lexicon": lexiconSummary(defaults: .standard),
+            "chatCleanup": chatCleanupSummary(),
         ]
         if let running = runningAppSummary() {
             result["runningApp"] = running
@@ -46,6 +47,24 @@ enum CommandLineTool {
             result["authError"] = error.localizedDescription
         }
         return printJSON(result, to: .standardOutput) ? 0 : 1
+    }
+
+    /// Settings and key presence only; the key is never read and nothing is migrated.
+    private static func chatCleanupSummary() -> [String: Any] {
+        let defaults = UserDefaults.standard
+        let migrated = defaults.integer(forKey: "chatCleanupDefaultsVersion") >= 1
+        let stored = defaults.string(forKey: "chatCleanupBaseURL")?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let base = migrated
+            ? (stored?.isEmpty == false ? stored! : defaults.string(forKey: "openAIBaseURL") ?? "")
+            : AppPreferences.defaultChatCleanupBaseURL
+        return [
+            "enabled": migrated ? (defaults.object(forKey: "chatCleanup") as? Bool ?? true) : true,
+            "host": URL(string: base)?.host ?? "",
+            "model": migrated
+                ? (defaults.string(forKey: "chatCleanupModel") ?? AppPreferences.defaultChatCleanupModel)
+                : AppPreferences.defaultChatCleanupModel,
+            "chatKeyConfigured": KeychainSecretStore().containsSecret(for: KeychainSecretStore.chatAPIKeyAccount),
+        ]
     }
 
     /// Counts only. Words and corrections never leave the file.
