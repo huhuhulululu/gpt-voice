@@ -116,4 +116,51 @@ final class OpenAICompatibleClientTests: XCTestCase {
         XCTAssertFalse(OpenAICompatibleURL.isLocalHost("https://api.openai.com/v1"))
         XCTAssertThrowsError(try OpenAICompatibleURL.transcriptions(from: "not a url"))
     }
+
+    func testRequestsVerboseJSONExceptForGPT4oModels() {
+        let whisper = OpenAICompatibleEndpoint(baseURL: "https://api.groq.com/openai/v1", model: "whisper-large-v3",
+                                               language: "zh")
+        XCTAssertEqual(OpenAICompatibleClient.transcriptionFields(endpoint: whisper, prompt: "以下是普通话的句子。",
+                                                                  verbose: true),
+                       ["model": "whisper-large-v3", "prompt": "以下是普通话的句子。",
+                        "response_format": "verbose_json"])
+        XCTAssertTrue(OpenAICompatibleClient.supportsVerboseJSON(model: "whisper-1"))
+        XCTAssertFalse(OpenAICompatibleClient.supportsVerboseJSON(model: "gpt-4o-mini-transcribe"))
+    }
+
+    func testVerboseSegmentsDropAHallucinatedOutro() async throws {
+        let body = #"{"text":" Ship it. Thank you for watching.","segments":[{"text":" Ship it.","no_speech_prob":0.01,"avg_logprob":-0.2,"compression_ratio":1.1},{"text":" Thank you for watching.","no_speech_prob":0.85,"avg_logprob":-1.4,"compression_ratio":1.0}]}"#
+        let client = client(status: 200, body: body)
+        let endpoint = OpenAICompatibleEndpoint(baseURL: "https://api.openai.com/v1", model: "whisper-1", language: "")
+        let text = try await client.send(audio: Data([1]), filename: "a.wav", contentType: "audio/wav",
+                                         endpoint: endpoint, prompt: nil,
+                                         url: try OpenAICompatibleURL.transcriptions(from: endpoint.baseURL),
+                                         apiKey: nil)
+        XCTAssertEqual(text, "Ship it.")
+    }
+
+    func testServerWithoutVerboseJSONGetsOnePlainRetry() async throws {
+        var calls = 0
+        StubURLProtocol.handler = { _ in
+            calls += 1
+            return calls == 1 ? (400, Data(#"{"error":"response_format"}"#.utf8)) : (200, Data(#"{"text":"hello"}"#.utf8))
+        }
+        let client = OpenAICompatibleClient(session: session())
+        let endpoint = OpenAICompatibleEndpoint(baseURL: "http://127.0.0.1:8080/v1", model: "whisper-1", language: "")
+        let url = try OpenAICompatibleURL.transcriptions(from: endpoint.baseURL)
+        let text = try await client.send(audio: Data([1]), filename: "a.wav", contentType: "audio/wav",
+                                         endpoint: endpoint, prompt: nil, url: url, apiKey: nil)
+        XCTAssertEqual(text, "hello")
+        XCTAssertEqual(calls, 2)
+
+        calls = 0
+        let gpt4o = OpenAICompatibleEndpoint(baseURL: endpoint.baseURL, model: "gpt-4o-transcribe", language: "")
+        do {
+            _ = try await client.send(audio: Data([1]), filename: "a.wav", contentType: "audio/wav",
+                                      endpoint: gpt4o, prompt: nil, url: url, apiKey: nil)
+            XCTFail("A plain request has nothing to fall back to")
+        } catch {
+            XCTAssertEqual(calls, 1)
+        }
+    }
 }
