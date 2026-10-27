@@ -48,13 +48,33 @@ public enum Vocabulary {
 
     /// Whisper `prompt` for this language. Chinese gets a Mandarin lead (and terms in Chinese style)
     /// because an English prompt pulls zh audio toward English. Other languages use the glossary sentence.
+    /// Terms come best first; the tail is dropped to stay within `maxTerms` and `tokenBudget`.
     public static func transcriptionPrompt(words: [String], language: String?,
-                                           script: ChineseScript = .simplified) -> String? {
-        let terms = words.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
-        guard ChineseScript.isChinese(language) else { return glossaryPrompt(from: terms) }
-        let lead = chinesePromptLead(script)
-        guard !terms.isEmpty else { return lead }
-        return lead + "可能出现的词：" + terms.joined(separator: "、") + "。"
+                                           script: ChineseScript = .simplified,
+                                           maxTerms: Int = 30, tokenBudget: Int = 224) -> String? {
+        var terms = Array(words.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }.prefix(maxTerms))
+        func build(_ terms: [String]) -> String? {
+            guard ChineseScript.isChinese(language) else { return glossaryPrompt(from: terms) }
+            let lead = chinesePromptLead(script)
+            guard !terms.isEmpty else { return lead }
+            return lead + "可能出现的词：" + terms.joined(separator: "、") + "。"
+        }
+        while !terms.isEmpty, let prompt = build(terms), estimatedTokens(prompt) > tokenBudget {
+            terms.removeLast()
+        }
+        return build(terms)
+    }
+
+    /// Deliberately high token count for a Whisper prompt: each non-ASCII scalar counts as two
+    /// tokens and ASCII text as one token per three characters.
+    public static func estimatedTokens(_ text: String) -> Int {
+        var ascii = 0
+        var other = 0
+        for scalar in text.unicodeScalars {
+            if scalar.isASCII { ascii += 1 } else { other += 1 }
+        }
+        return other * 2 + (ascii + 2) / 3
     }
 
     /// Whisper repeats its prompt on near-silent audio. Drop that echo instead of pasting it.
@@ -78,18 +98,32 @@ public enum Vocabulary {
             .sorted { $0.mishear.count > $1.mishear.count }
         var result = text
         for item in ordered {
-            if item.mishear.unicodeScalars.contains(where: { CharacterSet.letters.contains($0) && $0.isASCII }) {
-                let escaped = NSRegularExpression.escapedPattern(for: item.mishear)
-                let pattern = "(?i)(?<![A-Za-z0-9])\(escaped)(?![A-Za-z0-9])"
-                if let regex = try? NSRegularExpression(pattern: pattern) {
-                    let range = NSRange(result.startIndex..<result.endIndex, in: result)
-                    let template = NSRegularExpression.escapedTemplate(for: item.correct)
-                    result = regex.stringByReplacingMatches(in: result, range: range, withTemplate: template)
-                }
+            if let regex = wordRegex(for: item.mishear) {
+                let range = NSRange(result.startIndex..<result.endIndex, in: result)
+                let template = NSRegularExpression.escapedTemplate(for: item.correct)
+                result = regex.stringByReplacingMatches(in: result, range: range, withTemplate: template)
             } else {
                 result = result.replacingOccurrences(of: item.mishear, with: item.correct)
             }
         }
         return result
+    }
+
+    /// Same matching rule as `applyReplacements`: Latin words match whole and case-insensitively.
+    public static func contains(_ term: String, in text: String) -> Bool {
+        let term = term.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !term.isEmpty, !text.isEmpty else { return false }
+        if let regex = wordRegex(for: term) {
+            return regex.firstMatch(in: text, range: NSRange(text.startIndex..<text.endIndex, in: text)) != nil
+        }
+        return text.contains(term)
+    }
+
+    private static func wordRegex(for term: String) -> NSRegularExpression? {
+        guard term.unicodeScalars.contains(where: { CharacterSet.letters.contains($0) && $0.isASCII }) else {
+            return nil
+        }
+        let escaped = NSRegularExpression.escapedPattern(for: term)
+        return try? NSRegularExpression(pattern: "(?i)(?<![A-Za-z0-9])\(escaped)(?![A-Za-z0-9])")
     }
 }
