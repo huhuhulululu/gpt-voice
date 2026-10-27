@@ -179,12 +179,17 @@ final class DictationPanelController: NSObject {
             if reduced || (wasVisible && almostEqual(panel.frame.size, targetFrame.size)) {
                 panel.setFrame(targetFrame, display: true)
                 panel.alphaValue = 1
+                refreshShadow()
             } else {
                 NSAnimationContext.runAnimationGroup { context in
                     context.duration = timing.resize
                     context.timingFunction = CAMediaTimingFunction(name: .easeOut)
                     panel.animator().setFrame(targetFrame, display: true)
                     panel.animator().alphaValue = 1
+                } completionHandler: { [weak self] in
+                    DispatchQueue.main.async {
+                        self?.refreshShadow()
+                    }
                 }
             }
         } else {
@@ -192,6 +197,7 @@ final class DictationPanelController: NSObject {
             panel.setFrame(targetFrame, display: true)
             panel.alphaValue = 0
             panel.orderFrontRegardless()
+            refreshShadow()
             NSAnimationContext.runAnimationGroup { context in
                 context.duration = reduced ? timing.reducedFade : timing.entrance
                 context.timingFunction = CAMediaTimingFunction(name: .easeOut)
@@ -207,6 +213,14 @@ final class DictationPanelController: NSObject {
             NSAccessibility.post(element: NSApplication.shared, notification: .announcementRequested,
                                  userInfo: [.announcement: announcement,
                                             .priority: NSAccessibilityPriorityLevel.high.rawValue])
+        }
+    }
+
+    /// The window shadow is traced from the glass's alpha, and the bar and help card have different corner
+    /// radii, so it is recomputed after the new content has drawn.
+    private func refreshShadow() {
+        DispatchQueue.main.async { [weak self] in
+            self?.panel.invalidateShadow()
         }
     }
 

@@ -47,7 +47,7 @@ If macOS shows a verification warning, ignore it and open **System Settings → 
 ## A small tool that stays out of the way
 
 - A configurable global shortcut. The default is **Control–Option–Space**. Hold it to record, then release to transcribe. A short tap still starts; press again to stop. Hold Left Option, or another Option, Control, or Shift key, to record. The transcript is pasted when you let go.
-- A compact recording pill with input level, elapsed time, cancel and stop.
+- A compact frosted-glass recording pill with a live waveform, elapsed time, cancel and stop.
 - Automatic paste restores your clipboard. Turn it off to keep the transcript for **Command–V**.
 - Onboarding with permission recovery and an in-app practice step.
 - System, Light and Dark themes, five accent colorways (Coral-Violet by default, Soft Blue, Sage, Amber, Graphite) and top or bottom pill placement.

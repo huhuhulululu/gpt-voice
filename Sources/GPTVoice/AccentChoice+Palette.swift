@@ -19,22 +19,26 @@ extension AccentChoice {
         }
     }
 
-    /// Waveform bars and the live dot.
-    func waveRamp(dark: Bool) -> [Color] {
-        (dark ? ramps.darkWave : ramps.light).map(AppPalette.color)
+    /// Waveform bars and the live dot, as sRGB hex for drawing code that blends along the ramp.
+    func waveStops(dark: Bool) -> [UInt32] {
+        dark ? ramps.darkWave : ramps.light
     }
 
     /// Wide fills behind white text, such as the Retry pill.
-    func fillRamp(dark: Bool) -> [Color] {
-        (dark ? ramps.darkFill : ramps.light).map(AppPalette.color)
+    func fillStops(dark: Bool) -> [UInt32] {
+        dark ? ramps.darkFill : ramps.light
     }
 
     /// Round fills behind white symbols (stop, success check, swatches). The full ramp reads as a bruise
     /// on a 28 pt circle, so the last stop sits partway to violet.
-    func buttonRamp(dark: Bool) -> [Color] {
-        let stops = dark ? ramps.darkFill : ramps.light
-        return [stops[0], stops[1], AppPalette.mix(stops[1], stops[2], 0.45)].map(AppPalette.color)
+    func buttonStops(dark: Bool) -> [UInt32] {
+        let stops = fillStops(dark: dark)
+        return [stops[0], stops[1], AppPalette.mix(stops[1], stops[2], 0.45)]
     }
+
+    func waveRamp(dark: Bool) -> [Color] { waveStops(dark: dark).map(AppPalette.color) }
+    func fillRamp(dark: Bool) -> [Color] { fillStops(dark: dark).map(AppPalette.color) }
+    func buttonRamp(dark: Bool) -> [Color] { buttonStops(dark: dark).map(AppPalette.color) }
 
     /// Fill role for AppKit painting: primary buttons, switch tracks, selected rows.
     /// Each is dark enough for white labels; Graphite flips between near-black and near-white.
@@ -48,7 +52,8 @@ extension AccentChoice {
         }
     }
 
-    /// Fill role: primary buttons, switch tracks, selected swatch.
+    /// Fill role: primary buttons, switch tracks, selected swatch. Also the recording bar's fills
+    /// under Increase Contrast, where the soft ramps are too light behind white.
     var color: Color { Color(nsColor: nsColor) }
 
     /// Text and symbols placed on the fill.

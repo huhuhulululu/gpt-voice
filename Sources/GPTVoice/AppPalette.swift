@@ -58,6 +58,21 @@ enum AppPalette {
         return channel(16) | channel(8) | channel(0)
     }
 
+    /// The color at `position` (0...1) along evenly spaced stops.
+    static func sample(_ stops: [UInt32], at position: Double) -> UInt32 {
+        guard stops.count > 1 else { return stops.first ?? 0 }
+        let scaled = max(0, min(1, position)) * Double(stops.count - 1)
+        let index = min(Int(scaled), stops.count - 2)
+        return mix(stops[index], stops[index + 1], scaled - Double(index))
+    }
+
+    /// A translucent color that differs between light and dark.
+    static func dynamic(light: UInt32, lightAlpha: CGFloat, dark: UInt32, darkAlpha: CGFloat) -> Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            isDark(appearance) ? rgb(dark).withAlphaComponent(darkAlpha) : rgb(light).withAlphaComponent(lightAlpha)
+        })
+    }
+
     private static func rgb(_ hex: UInt32) -> NSColor {
         NSColor(srgbRed: CGFloat((hex >> 16) & 0xFF) / 255,
                 green: CGFloat((hex >> 8) & 0xFF) / 255,

@@ -35,6 +35,10 @@ enum AppType {
     static let keycapLarge = Font.system(size: 20, weight: .medium)
     /// Timers: tabular figures applied by the caller.
     static let timer = Font.system(size: 12.5, weight: .medium)
+    /// Recording bar status labels, such as Transcribing… and Pasted.
+    static let overlayLabel = Font.system(size: 13, weight: .medium)
+    /// The recording bar's one text action, such as Retry.
+    static let overlayAction = Font.system(size: 12.5, weight: .semibold)
 
     /// Title tracking, as in the reference type scale (tight at large sizes).
     static let titleTracking: CGFloat = -0.4
