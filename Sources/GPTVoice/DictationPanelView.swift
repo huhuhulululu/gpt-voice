@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// Keeps one surface while the window resizes and the content cross-fades.
