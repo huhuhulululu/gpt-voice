@@ -770,6 +770,7 @@ final class AppModel: NSObject, ObservableObject {
     }
 
     private func performTranscription(_ url: URL) async throws -> String {
+        let apiKey = lockedSecret(for: KeychainSecretStore.apiKeyAccount)
         let raw: String
         if let transcribeAudio {
             raw = try await transcribeAudio(url)
@@ -780,7 +781,7 @@ final class AppModel: NSObject, ObservableObject {
                 language: preferences.openAIEndpoint.languageHint,
                 prompt: preferences.vocabularyPrompt,
                 openAI: preferences.openAIEndpoint,
-                apiKey: lockedSecret(for: KeychainSecretStore.apiKeyAccount)
+                apiKey: apiKey
             )
         }
         let chat: (model: String, baseURL: String, apiKey: String?)?
@@ -789,8 +790,7 @@ final class AppModel: NSObject, ObservableObject {
             chat = (
                 preferences.chatCleanupModel,
                 base.isEmpty ? preferences.openAIBaseURL : base,
-                lockedSecret(for: KeychainSecretStore.chatAPIKeyAccount)
-                    ?? lockedSecret(for: KeychainSecretStore.apiKeyAccount)
+                lockedSecret(for: KeychainSecretStore.chatAPIKeyAccount) ?? apiKey
             )
         } else {
             chat = nil

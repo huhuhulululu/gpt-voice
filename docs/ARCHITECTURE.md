@@ -19,6 +19,7 @@ Automatic paste first tries an Accessibility insert at the caret. If that is not
 Sign-in and token renewal for the Codex path use the installed Codex CLI app-server protocol.
 Goice reads the resulting file-backed ChatGPT session. Codex API-key auth files are still rejected.
 OpenAI-compatible API keys are stored in the Keychain, never in the repository or UserDefaults.
+Menu and `--diagnose` only check that an item exists (`kSecUseAuthenticationUIFail`). The secret is read at most once per process, then cached. A successful read of a pre-resign file-based item rewrites it as a Data Protection item (`AfterFirstUnlockThisDeviceOnly`) so later launches of the same signed binary do not prompt.
 The current implementation does not read Codex sessions stored only in the macOS Keychain.
 
 The service route is `https://chatgpt.com/backend-api/transcribe`.
