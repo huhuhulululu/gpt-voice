@@ -1,7 +1,9 @@
 import AppKit
 import Carbon.HIToolbox
 
-/// Hold-to-talk must not see keystrokes meant for SecurityAgent / secure fields.
+/// Hold-to-talk stands down while a system authentication sheet is taking a password.
+/// Secure input alone is not enough: Terminal's Secure Keyboard Entry, password managers, and a
+/// stuck secure-input app turn it on globally, and bypassing then would leave Left Option dead.
 enum HoldInputGate {
     static let authBundleIDs: Set<String> = [
         "com.apple.SecurityAgent",
@@ -11,13 +13,21 @@ enum HoldInputGate {
     ]
 
     static var shouldBypass: Bool {
-        shouldBypass(secureInput: IsSecureEventInputEnabled(),
-                     frontmostBundleID: NSWorkspace.shared.frontmostApplication?.bundleIdentifier)
+        shouldBypass(frontmostBundleID: NSWorkspace.shared.frontmostApplication?.bundleIdentifier,
+                     secureInputOwnerBundleID: secureInputOwnerBundleID())
     }
 
-    static func shouldBypass(secureInput: Bool, frontmostBundleID: String?) -> Bool {
-        if secureInput { return true }
-        guard let frontmostBundleID else { return false }
-        return authBundleIDs.contains(frontmostBundleID)
+    static func shouldBypass(frontmostBundleID: String?, secureInputOwnerBundleID: String?) -> Bool {
+        [frontmostBundleID, secureInputOwnerBundleID].contains { id in
+            id.map(authBundleIDs.contains) ?? false
+        }
+    }
+
+    /// The process holding secure input, from the login session. Nil when secure input is off.
+    private static func secureInputOwnerBundleID() -> String? {
+        guard IsSecureEventInputEnabled(),
+              let session = CGSessionCopyCurrentDictionary() as? [String: Any],
+              let pid = (session["kCGSSessionSecureInputPID"] as? NSNumber)?.int32Value else { return nil }
+        return NSRunningApplication(processIdentifier: pid)?.bundleIdentifier
     }
 }

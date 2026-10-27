@@ -60,7 +60,11 @@ final class ModifierHoldListener {
     }
 
     private func handle(_ event: NSEvent) {
-        guard !isPaused, !HoldInputGate.shouldBypass else { return }
+        if isPaused || HoldInputGate.shouldBypass {
+            // An auth sheet ends any pending hold; a recording already under way is discarded.
+            perform(tracker.chordFromKey())
+            return
+        }
         switch event.type {
         case .flagsChanged:
             perform(consumeFlags(event))
