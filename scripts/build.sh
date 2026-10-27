@@ -53,15 +53,9 @@ if [[ -d "$resource_bundle" ]]; then
   ditto "$resource_bundle" "$app_dir/Contents/Resources/GPTVoice_GPTVoice.bundle"
 fi
 icon_dir="$project_dir/.build/AppIcon.iconset"
-mkdir -p "$icon_dir"
-swift scripts/generate-icon.swift "$icon_dir/icon_512x512@2x.png" 1024
-for icon_size in 16 32 128 256 512; do
-  sips -z "$icon_size" "$icon_size" "$icon_dir/icon_512x512@2x.png" --out "$icon_dir/icon_${icon_size}x${icon_size}.png" >/dev/null
-  retina_size=$((icon_size * 2))
-  if [[ "$retina_size" != "1024" ]]; then
-    sips -z "$retina_size" "$retina_size" "$icon_dir/icon_512x512@2x.png" --out "$icon_dir/icon_${icon_size}x${icon_size}@2x.png" >/dev/null
-  fi
-done
+rm -rf "$icon_dir"
+# Each size is drawn at its own pixel size; 16 and 32 px use the three-bar mark.
+swift scripts/generate-icon.swift --iconset "$icon_dir"
 iconutil -c icns "$icon_dir" -o "$app_dir/Contents/Resources/AppIcon.icns"
 cat > "$app_dir/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
