@@ -51,6 +51,23 @@ public enum TranscriptPostProcessor {
         chat: (model: String, baseURL: String, apiKey: String?)?,
         session: URLSession
     ) async -> String {
+        await applyReporting(text, deterministicCleanup: deterministicCleanup, extraFilterWords: extraFilterWords,
+                             replacements: replacements, chineseScript: chineseScript, prompt: prompt,
+                             chat: chat, session: session).text
+    }
+
+    /// Also returns the text that replacements saw, so a correction copied from History
+    /// (already cleaned and script-converted) counts its hit.
+    public static func applyReporting(
+        _ text: String,
+        deterministicCleanup: Bool,
+        extraFilterWords: [String],
+        replacements: [VocabularyReplacement],
+        chineseScript: ChineseScript = .unchanged,
+        prompt: String? = nil,
+        chat: (model: String, baseURL: String, apiKey: String?)?,
+        session: URLSession
+    ) async -> (text: String, beforeReplacements: String) {
         var result = Vocabulary.stripPromptEcho(text, prompt: prompt)
         result = chineseScript.convert(result)
         if deterministicCleanup {
@@ -58,6 +75,7 @@ public enum TranscriptPostProcessor {
             filters.append(contentsOf: extraFilterWords)
             result = TranscriptCleanup.apply(result, filterWords: filters)
         }
+        let beforeReplacements = result
         if !replacements.isEmpty {
             result = Vocabulary.applyReplacements(result, replacements)
         }
@@ -72,6 +90,6 @@ public enum TranscriptPostProcessor {
                 // Keep the deterministic result.
             }
         }
-        return result
+        return (result, beforeReplacements)
     }
 }

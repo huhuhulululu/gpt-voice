@@ -88,11 +88,11 @@ struct HistoryEntryView: View {
                 .font(AppType.rowTitle)
             Text(LexiconEntryForm.seedText(entry.text).isEmpty
                  ? "Select and copy the word from this transcript, then paste it here."
-                 : "Edit before adding. For a mishearing, choose Correction and type what you meant.")
+                 : "Fix the wrong characters in Should be, then Add. The next dictation uses it.")
                 .font(AppType.detail)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            LexiconEntryForm(library: lexicon, kind: .term, seed: entry.text)
+            LexiconEntryForm(library: lexicon, kind: .correction, seed: entry.text)
         }
         .padding(16)
         .frame(width: 480)

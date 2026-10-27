@@ -24,7 +24,7 @@ struct LexiconEntryForm: View {
     @State private var kind: LexiconEntryKind
     @State private var term: String
     @State private var mishear: String
-    @State private var correct = ""
+    @State private var correct: String
     @State private var result: (text: String, ok: Bool)?
 
     init(library: LexiconLibrary, kind: LexiconEntryKind = .term, seed: String = "",
@@ -35,6 +35,7 @@ struct LexiconEntryForm: View {
         _kind = State(initialValue: kind)
         _term = State(initialValue: seed)
         _mishear = State(initialValue: seed)
+        _correct = State(initialValue: kind == .correction ? seed : "")
     }
 
     /// Only short transcripts prefill; longer ones are better copied from in part.
@@ -87,8 +88,9 @@ struct LexiconEntryForm: View {
         switch kind {
         case .term: return !term.trimmingCharacters(in: .whitespaces).isEmpty
         case .correction:
-            return !mishear.trimmingCharacters(in: .whitespaces).isEmpty
-                && !correct.trimmingCharacters(in: .whitespaces).isEmpty
+            let heard = mishear.trimmingCharacters(in: .whitespaces)
+            let fixed = correct.trimmingCharacters(in: .whitespaces)
+            return !heard.isEmpty && !fixed.isEmpty && heard != fixed
         }
     }
 

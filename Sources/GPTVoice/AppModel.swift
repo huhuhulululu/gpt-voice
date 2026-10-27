@@ -821,7 +821,7 @@ final class AppModel: NSObject, ObservableObject {
         return await readSecret(KeychainSecretStore.apiKeyAccount).value
     }
 
-    /// Returns the provider's raw text (for rule hit counts) and the text to deliver.
+    /// Returns the text replacements saw (for rule hit counts) and the text to deliver.
     private func performTranscription(_ url: URL) async throws -> (raw: String, text: String) {
         let apiKey = try await transcriptionAPIKey()
         let prompt = lexicon.transcriptionPrompt(language: preferences.transcriptionLanguage,
@@ -850,7 +850,7 @@ final class AppModel: NSObject, ObservableObject {
         } else {
             chat = nil
         }
-        let text = await TranscriptPostProcessor.apply(
+        let processed = await TranscriptPostProcessor.applyReporting(
             raw,
             deterministicCleanup: preferences.deterministicCleanup,
             extraFilterWords: preferences.extraFilterWords,
@@ -860,7 +860,7 @@ final class AppModel: NSObject, ObservableObject {
             chat: chat,
             session: HTTPClient.shared
         )
-        return (raw, text)
+        return (processed.beforeReplacements, processed.text)
     }
 
     private func captureEnded(url: URL) {
