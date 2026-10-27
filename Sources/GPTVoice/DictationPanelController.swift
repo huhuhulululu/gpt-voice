@@ -20,6 +20,7 @@ final class DictationPanelController: NSObject {
     private var sizeCache: [String: NSSize] = [:]
 
     var isVisible: Bool { panel.isVisible }
+    var isHideTimerPending: Bool { hideTimer != nil }
     var isExiting: Bool { presentation.exiting }
     var opacity: CGFloat { panel.alphaValue }
     var displayedState: DictationOverlayState { presentation.state }

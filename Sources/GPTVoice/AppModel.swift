@@ -97,6 +97,8 @@ final class AppModel: NSObject, ObservableObject {
 
     var statusText: String { phase.statusText }
     var canStart: Bool { !phase.isBusy && !paste.isLeasePending }
+    /// For `--diagnose`: the 20 Hz meter runs only while recording.
+    var isMeterRunning: Bool { meterTimer != nil }
     var canRetry: Bool { failedAudio != nil && !phase.isBusy }
     var canChangeSettings: Bool { !phase.isBusy && !paste.isLeasePending }
     var hotkey: HotkeySpec { preferences.hotkey }

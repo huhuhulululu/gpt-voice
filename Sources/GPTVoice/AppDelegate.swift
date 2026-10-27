@@ -87,5 +87,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                             queue: nil) { [weak self] _ in
             DispatchQueue.main.async { self?.windows.showOnboarding() }
         })
+        observers.append(center.addObserver(forName: RuntimeProbe.request, object: nil,
+                                            queue: nil) { [weak self] _ in
+            DispatchQueue.main.async { self?.answerDiagnoseProbe() }
+        })
+    }
+
+    private func answerDiagnoseProbe() {
+        let state = RuntimeProbe.snapshot(model: model, statusMenu: statusMenu, panel: panel)
+        DistributedNotificationCenter.default().postNotificationName(RuntimeProbe.reply, object: nil,
+                                                                     userInfo: state, deliverImmediately: true)
     }
 }

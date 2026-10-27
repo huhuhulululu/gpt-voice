@@ -1,3 +1,4 @@
+import AppKit
 import ApplicationServices
 import AVFoundation
 import DictationCore
@@ -22,7 +23,14 @@ enum CommandLineTool {
             "codexCLIAvailable": CodexAuthentication.cliAvailable,
             "transcriptionProvider": UserDefaults.standard.string(forKey: "transcriptionProvider") ?? "codex",
             "openAIKeyConfigured": keyConfigured,
-            "bundledFonts": FontRegistration.fontAvailability
+            "bundledFonts": FontRegistration.fontAvailability,
+            "process": [
+                "name": ProcessInfo.processInfo.processName,
+                "executable": Bundle.main.executableURL?.lastPathComponent ?? "",
+                "bundleIdentifier": Bundle.main.bundleIdentifier ?? "",
+            ],
+            "lexicon": lexiconSummary(defaults: .standard),
+            "runningApp": runningAppSummary() ?? NSNull(),
         ]
         do {
             let credentials = try CodexCredentials.load()
@@ -34,6 +42,43 @@ enum CommandLineTool {
             result["authError"] = error.localizedDescription
         }
         return printJSON(result, to: .standardOutput) ? 0 : 1
+    }
+
+    /// Counts only. Words and corrections never leave the file.
+    private static func lexiconSummary(defaults: UserDefaults) -> [String: Any] {
+        let lexicon = savedLexicon(defaults: defaults)
+        let script = ChineseScript(rawValue: defaults.string(forKey: "chineseScript") ?? "") ?? .simplified
+        let prompt = lexicon.transcriptionPrompt(language: defaults.string(forKey: "transcriptionLanguage"),
+                                                 script: script)
+        return [
+            "terms": lexicon.terms.count,
+            "corrections": lexicon.replacements.count,
+            "promptTerms": lexicon.promptTerms().count,
+            "promptTokensEstimate": prompt.map(Vocabulary.estimatedTokens) ?? 0,
+        ]
+    }
+
+    /// Asks the running app for its timers, then samples its CPU, memory, and wakeups for two seconds.
+    private static func runningAppSummary() -> [String: Any]? {
+        let bundleID = Bundle.main.bundleIdentifier ?? "com.vishesh.codex-dictation"
+        var summary = RuntimeProbe.queryRunningApp() ?? [:]
+        let ownPID = getpid()
+        let pid = (summary["pid"] as? Int).map { pid_t($0) }
+            ?? NSRunningApplication.runningApplications(withBundleIdentifier: bundleID)
+                .first { $0.processIdentifier != ownPID }?.processIdentifier
+        guard let pid else { return nil }
+        summary["pid"] = Int(pid)
+        if summary["phase"] == nil { summary["probe"] = "no answer" }
+        if let usage = ProcessUsage.sample(pid: pid, seconds: 2) {
+            summary.merge(usage) { _, new in new }
+        }
+        let idlePhases: Set<String> = ["idle", "finished", "failed"]
+        if let phase = summary["phase"] as? String, idlePhases.contains(phase) {
+            summary["idleQuiet"] = summary["meterTimerRunning"] as? Bool == false
+                && summary["menuBarAnimationRunning"] as? Bool == false
+                && summary["overlayVisible"] as? Bool == false
+        }
+        return summary
     }
 
     /// Read-only: the CLI never migrates or writes the word list.

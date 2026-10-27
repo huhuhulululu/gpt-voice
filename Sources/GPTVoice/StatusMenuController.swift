@@ -73,6 +73,9 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         }
     }
 
+    /// For `--diagnose`: frames advance only while transcribing or pasting.
+    var isWorkingAnimationRunning: Bool { workingTimer != nil }
+
     private func startWorkingAnimation() {
         if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
             stopWorkingAnimation()
