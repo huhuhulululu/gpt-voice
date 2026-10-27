@@ -30,8 +30,12 @@ enum CommandLineTool {
                 "bundleIdentifier": Bundle.main.bundleIdentifier ?? "",
             ],
             "lexicon": lexiconSummary(defaults: .standard),
-            "runningApp": runningAppSummary() ?? NSNull(),
         ]
+        if let running = runningAppSummary() {
+            result["runningApp"] = running
+        } else {
+            result["runningApp"] = NSNull()
+        }
         do {
             let credentials = try CodexCredentials.load()
             result["authAvailable"] = true

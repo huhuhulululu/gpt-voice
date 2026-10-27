@@ -66,7 +66,7 @@ struct LexiconEntryForm: View {
             HStack(spacing: 8) {
                 Text(result?.text ?? hint)
                     .font(AppType.detail)
-                    .foregroundStyle(result.map { $0.ok ? AppPalette.success : AppPalette.problem } ?? .secondary)
+                    .foregroundStyle(result.map { $0.ok ? AppPalette.success : AppPalette.problem } ?? Color.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 8)
                 Button("Add", action: add)
