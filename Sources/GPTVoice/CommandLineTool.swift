@@ -85,6 +85,45 @@ enum CommandLineTool {
         return summary
     }
 
+    /// Merges a seed file into the word list. Refuses while Goice runs, because the app keeps the list
+    /// in memory and would write its own copy back.
+    static func importLexicon(path: String) -> Int32 {
+        let bundleID = Bundle.main.bundleIdentifier ?? "com.vishesh.codex-dictation"
+        let ownPID = getpid()
+        if NSRunningApplication.runningApplications(withBundleIdentifier: bundleID)
+            .contains(where: { $0.processIdentifier != ownPID && !$0.isTerminated }) {
+            return usageError("Quit \(AppBrand.displayName) first, then run --import-lexicon again.")
+        }
+        let seed: LexiconSeed
+        do {
+            seed = try JSONDecoder().decode(LexiconSeed.self, from: Data(contentsOf: URL(fileURLWithPath: path)))
+        } catch {
+            return usageError("Could not read the seed file: \(error.localizedDescription)")
+        }
+        let defaults = UserDefaults.standard
+        let store = LexiconStore(fileURL: LexiconLibrary.defaultFileURL(besides: TranscriptionHistory.defaultFileURL))
+        var lexicon: Lexicon
+        switch store.load(movingUnreadableAside: false) {
+        case .loaded(let saved): lexicon = saved
+        case .missing:
+            lexicon = Lexicon.migrating(words: defaults.string(forKey: "vocabularyWords") ?? "",
+                                        replacements: defaults.string(forKey: "vocabularyReplacements") ?? "")
+        case .unreadable:
+            return usageError("The saved word list could not be read. Open \(AppBrand.displayName) once to set it aside.")
+        }
+        let added = lexicon.merge(seed)
+        do {
+            try store.save(lexicon)
+        } catch {
+            return usageError("Could not save the word list: \(error.localizedDescription)")
+        }
+        let result: [String: Any] = [
+            "addedTerms": added.terms, "addedCorrections": added.corrections,
+            "terms": lexicon.terms.count, "corrections": lexicon.replacements.count,
+        ]
+        return printJSON(result, to: .standardOutput) ? 0 : 1
+    }
+
     /// Read-only: the CLI never migrates or writes the word list.
     private static func savedLexicon(defaults: UserDefaults) -> Lexicon {
         let url = LexiconLibrary.defaultFileURL(besides: TranscriptionHistory.defaultFileURL)

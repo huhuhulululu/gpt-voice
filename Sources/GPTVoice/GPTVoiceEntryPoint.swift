@@ -16,6 +16,11 @@ struct GPTVoiceEntryPoint {
                 exit(CommandLineTool.usageError("Usage: Goice --transcribe FILE"))
             }
             runAsync { await CommandLineTool.transcribe(path: path) }
+        case "--import-lexicon":
+            guard let path = value(after: "--import-lexicon", in: arguments) else {
+                exit(CommandLineTool.usageError("Usage: Goice --import-lexicon FILE"))
+            }
+            exit(CommandLineTool.importLexicon(path: path))
         case "--refresh-auth-check":
             runAsync { await CommandLineTool.refreshAuthCheck() }
         case "--show-onboarding":
@@ -37,7 +42,7 @@ struct GPTVoiceEntryPoint {
         default:
             if arguments.first?.hasPrefix("-psn") != true {
                 exit(CommandLineTool.usageError(
-                    "Options: --diagnose, --transcribe FILE, --refresh-auth-check, --show-onboarding, "
+                    "Options: --diagnose, --transcribe FILE, --import-lexicon FILE, --refresh-auth-check, --show-onboarding, "
                     + "--show-settings, --transcribe-and-paste FILE, --practice-audio FILE"))
             }
         }
