@@ -4,6 +4,8 @@ import SwiftUI
 /// Louder input brightens the glow. Reduce Motion holds the halo still at half breath.
 struct OverlayLiveDot: View {
     var level: Float = 0
+    /// False for the Settings preview, which must not keep a 30 fps timeline running.
+    var animates = true
     @Environment(\.appAccentChoice) private var accent
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -15,7 +17,7 @@ struct OverlayLiveDot: View {
     private static let period: TimeInterval = 1.6
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1 / 30, paused: reduceMotion)) { timeline in
+        TimelineView(.animation(minimumInterval: 1 / 30, paused: isStill)) { timeline in
             Canvas { context, size in
                 draw(in: &context, size: size, breath: breath(at: timeline.date))
             }
@@ -26,8 +28,10 @@ struct OverlayLiveDot: View {
         .accessibilityLabel("Recording")
     }
 
+    private var isStill: Bool { reduceMotion || !animates }
+
     private func breath(at date: Date) -> CGFloat {
-        if reduceMotion { return 0.5 }
+        if isStill { return 0.5 }
         let phase = date.timeIntervalSinceReferenceDate / Self.period
         return CGFloat(0.5 - 0.5 * cos(2 * .pi * phase))
     }

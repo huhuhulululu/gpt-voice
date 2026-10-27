@@ -12,7 +12,7 @@ struct OverlayCapsuleContent: View {
         switch state {
         case .recording(let elapsed, let level):
             HStack(spacing: 0) {
-                OverlayLiveDot(level: level)
+                OverlayLiveDot(level: level, animates: sampleWaveform == nil)
                     .padding(.trailing, 7)
                 OverlayWaveform(level: level, elapsed: elapsed, sample: sampleWaveform)
                     .padding(.trailing, 10)
