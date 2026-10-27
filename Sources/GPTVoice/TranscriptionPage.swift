@@ -129,7 +129,7 @@ struct TranscriptionPage: View {
 
     private var chatGroup: some View {
         SettingsGroup(title: "Chat cleanup",
-                      footnote: "Optional, off by default. Runs after Transcription and your word list, only when you dictate, and only once a base URL, model, and key are all set. It has its own API key in the Keychain, separate from the Transcription key; the Transcription key is reused only when both URLs are on the same host. If the chat server fails or is slow, the local result is pasted.") {
+                      footnote: "On by default; turn it off here. Runs after Transcription and your word list, only when you dictate, and only once a base URL, model, and key are all set. It has its own API key in the Keychain, separate from the Transcription key; the Transcription key is reused only when both URLs are on the same host. If the chat server fails or is slow, the local result is pasted.") {
             SettingsRow(title: "LLM correction",
                         detail: "Sends each transcript and your word list to a chat model that fixes misheard words. Not used for speech-to-text.",
                         showsDivider: preferences.chatCleanup) {
@@ -140,12 +140,13 @@ struct TranscriptionPage: View {
                 SettingsRow(title: "Chat base URL",
                             detail: "Any OpenAI-compatible /v1 server. Separate from the Transcription URL.") {
                     AppTextField(label: "Chat base URL", text: $preferences.chatCleanupBaseURL,
-                                 placeholder: "https://…/v1")
+                                 placeholder: AppPreferences.defaultChatCleanupBaseURL)
                         .disabled(!model.canChangeSettings)
                 }
                 SettingsRow(title: "Chat model",
                             detail: "A model id your chat server lists under /v1/models. Correction is skipped until set.") {
-                    AppTextField(label: "Chat model", text: $preferences.chatCleanupModel, placeholder: "model id")
+                    AppTextField(label: "Chat model", text: $preferences.chatCleanupModel,
+                                 placeholder: AppPreferences.defaultChatCleanupModel)
                         .disabled(!model.canChangeSettings)
                 }
                 SettingsRow(title: "Chat API key", detail: chatKeyDetail, showsDivider: false) {

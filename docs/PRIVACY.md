@@ -9,7 +9,7 @@ An OpenAI-compatible server that you configure can stay on your machine. This ap
 | Audio | A private temporary folder on your Mac, then ChatGPT or your configured transcription server |
 | ChatGPT session | The existing Codex CLI configuration on your Mac, when using Codex |
 | API key | macOS Keychain on this Mac, when using an OpenAI-compatible server |
-| Chat cleanup | Each transcript and your word list's top terms and corrections go to the chat server you configure when chat cleanup is on and its URL, model and key are set. Its key is a separate Keychain item. |
+| Chat cleanup | Each transcript and your word list's top terms and corrections go to the chat server (default `https://larprouter.com/v1`, model `deepseek-v4.1-flash`) once its key is saved. Chat cleanup is on by default and can be turned off in Settings. Its key is a separate Keychain item. |
 | Transcript | The selected text field, or your clipboard for manual paste |
 | Transcript history | `~/Library/Application Support/GPT Voice/history.json` on your Mac |
 | Word list | `~/Library/Application Support/GPT Voice/lexicon.json` on your Mac |

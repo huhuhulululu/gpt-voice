@@ -42,16 +42,17 @@ final class ChatCleanupAppTests: XCTestCase {
         super.tearDown()
     }
 
-    func testFreshInstallLeavesChatCleanupOffAndUnconfigured() {
-        let preferences = AppPreferences(defaults: freshDefaults())
-        XCTAssertFalse(preferences.chatCleanup)
-        XCTAssertEqual(preferences.chatCleanupBaseURL, "")
-        XCTAssertEqual(preferences.chatCleanupModel, "")
-        XCTAssertFalse(preferences.chatCleanupIsConfigured)
-        preferences.chatCleanupBaseURL = "https://chat.example.test/v1"
-        preferences.chatCleanupModel = " some-model "
+    func testFreshInstallDefaultsToDeepSeekThroughLarpRouter() {
+        let defaults = freshDefaults()
+        let preferences = AppPreferences(defaults: defaults)
+        XCTAssertTrue(preferences.chatCleanup)
+        XCTAssertEqual(preferences.chatCleanupBaseURL, "https://larprouter.com/v1")
+        XCTAssertEqual(preferences.chatCleanupModel, "deepseek-v4.1-flash")
         XCTAssertTrue(preferences.chatCleanupIsConfigured)
-        XCTAssertEqual(preferences.chatCleanupModelID, "some-model")
+        preferences.chatCleanupModel = " "
+        XCTAssertFalse(preferences.chatCleanupIsConfigured)
+        preferences.chatCleanup = false
+        XCTAssertFalse(AppPreferences(defaults: defaults).chatCleanup)
     }
 
     func testGroqKeyIsNeverSentToTheChatServer() async throws {

@@ -47,12 +47,15 @@ final class ChatCleanupTests: XCTestCase {
     func testRequestSendsLexiconAwarePromptAndReturnsTheFix() async throws {
         StubURLProtocol.response = (200, reply("锄禾日当午，汗滴禾下土。"))
         let text = try await ChatCleanupClient.clean("锄禾日当午，棺中有老虎。", model: "test-chat-model",
-                                                     baseURL: chatURL, apiKey: "chatURL-test", context: poemContext,
+                                                     baseURL: chatURL, apiKey: "chat-test-key", context: poemContext,
                                                      session: session())
         XCTAssertEqual(text, "锄禾日当午，汗滴禾下土。")
         let request = try XCTUnwrap(StubURLProtocol.lastRequest)
         XCTAssertEqual(request.url?.absoluteString, "https://chat.example.test/v1/chat/completions")
-        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer chatURL-test")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer chat-test-key")
+        let agent = try XCTUnwrap(request.value(forHTTPHeaderField: "User-Agent"))
+        XCTAssertEqual(agent, HTTPClient.browserUserAgent)
+        XCTAssertTrue(agent.hasPrefix("Mozilla/5.0 (Macintosh;") && agent.contains("Safari/"))
         let body = try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap(StubURLProtocol.lastBody)) as? [String: Any])
         XCTAssertEqual(body["model"] as? String, "test-chat-model")
         XCTAssertEqual(body["temperature"] as? Int, 0)
@@ -67,7 +70,7 @@ final class ChatCleanupTests: XCTestCase {
         let result = await TranscriptPostProcessor.applyReporting(
             "彩鞠动篱下,悠然见南山。", deterministicCleanup: true, extraFilterWords: [],
             replacements: poemContext.corrections, chineseScript: .simplified,
-            chat: ("test-chat-model", chatURL, "chatURL-test"), chatContext: poemContext, session: session())
+            chat: ("test-chat-model", chatURL, "chat-test-key"), chatContext: poemContext, session: session())
         XCTAssertEqual(result.text, "采菊东篱下，悠然见南山。")
         XCTAssertEqual(result.beforeReplacements, "彩鞠动篱下,悠然见南山。")
         let body = String(decoding: StubURLProtocol.lastBody ?? Data(), as: UTF8.self)
@@ -78,7 +81,7 @@ final class ChatCleanupTests: XCTestCase {
         StubURLProtocol.response = (200, reply("老板,帮我把鸟花拿过来。"))
         let text = await TranscriptPostProcessor.apply(
             "老板,帮我把鸟花拿过来。", deterministicCleanup: true, extraFilterWords: [], replacements: [],
-            chineseScript: .simplified, chat: ("test-chat-model", chatURL, "chatURL-test"),
+            chineseScript: .simplified, chat: ("test-chat-model", chatURL, "chat-test-key"),
             chatContext: poemContext, session: session())
         XCTAssertEqual(text, "老板,帮我把鸟花拿过来。")
     }
@@ -92,7 +95,7 @@ final class ChatCleanupTests: XCTestCase {
             let text = await TranscriptPostProcessor.apply(
                 "出禾日当午,观众有老虎。", deterministicCleanup: true, extraFilterWords: [],
                 replacements: [VocabularyReplacement(mishear: "出禾", correct: "锄禾")],
-                chineseScript: .simplified, chat: ("test-chat-model", chatURL, "chatURL-test"),
+                chineseScript: .simplified, chat: ("test-chat-model", chatURL, "chat-test-key"),
                 chatContext: poemContext, session: session())
             XCTAssertEqual(text, deterministic, "HTTP \(status)")
         }
@@ -102,7 +105,7 @@ final class ChatCleanupTests: XCTestCase {
         let text = await TranscriptPostProcessor.apply(
             "出禾日当午", deterministicCleanup: true, extraFilterWords: [],
             replacements: [VocabularyReplacement(mishear: "出禾", correct: "锄禾")],
-            chat: ("test-chat-model", "http://127.0.0.1:9/v1", "chatURL-test"), session: .shared)
+            chat: ("test-chat-model", "http://127.0.0.1:9/v1", "chat-test-key"), session: .shared)
         XCTAssertEqual(text, "锄禾日当午")
     }
 

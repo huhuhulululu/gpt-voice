@@ -129,9 +129,9 @@ final class AppPreferences: ObservableObject {
     /// Script conversion applies only when the language hint is Chinese.
     var effectiveChineseScript: ChineseScript { transcriptsInChinese ? chineseScript : .unchanged }
 
-    /// No default server or model: chat cleanup does nothing until the user names both.
-    nonisolated static let defaultChatCleanupBaseURL = ""
-    nonisolated static let defaultChatCleanupModel = ""
+    /// Chat cleanup still needs its own key in the Keychain; until one is saved it is skipped.
+    nonisolated static let defaultChatCleanupBaseURL = "https://larprouter.com/v1"
+    nonisolated static let defaultChatCleanupModel = "deepseek-v4.1-flash"
 
     var chatCleanupEndpoint: String { chatCleanupBaseURL.trimmingCharacters(in: .whitespacesAndNewlines) }
     var chatCleanupModelID: String { chatCleanupModel.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -170,7 +170,7 @@ final class AppPreferences: ObservableObject {
             Key.vocabularyWords: "",
             Key.vocabularyReplacements: "",
             Key.filterWords: "",
-            Key.chatCleanup: false,
+            Key.chatCleanup: true,
             Key.chatCleanupModel: Self.defaultChatCleanupModel,
             Key.chatCleanupBaseURL: Self.defaultChatCleanupBaseURL
         ])
