@@ -153,6 +153,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         let hasTranscript = model.lastTranscript != nil
         menu.addItem(item("Paste Last Transcript", #selector(pasteLast), enabled: hasTranscript && model.canStart))
         menu.addItem(item("Copy Last Transcript", #selector(copyLast), enabled: hasTranscript))
+        menu.addItem(item("Add Word or Correction…", #selector(addToLexicon), enabled: true))
         menu.addItem(.separator())
         let settings = item("Settings…", #selector(showSettings), enabled: true)
         settings.keyEquivalent = ","
@@ -177,6 +178,11 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     @objc private func pasteLast() { model.pasteLastTranscript() }
     @objc private func copyLast() { model.copyLastTranscript() }
     @objc private func showSettings() { windows.showSettings() }
+    /// History rows carry 加入词库, prefilled from the transcript.
+    @objc private func addToLexicon() {
+        model.preferredSettingsPage = .history
+        windows.showSettings()
+    }
     @objc private func openInputMonitoring() { model.openInputMonitoringSettings() }
     @objc private func openMicrophone() { model.openMicrophoneSettings() }
     @objc private func openTranscription() { model.openTranscriptionSettings() }

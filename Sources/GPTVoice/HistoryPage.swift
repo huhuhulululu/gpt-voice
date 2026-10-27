@@ -40,6 +40,7 @@ struct HistoryPage: View {
                     ForEach(days, id: \.day) { day in
                         HistoryDayView(day: day.day, entries: day.entries,
                                        canCopy: !model.isPasteLeasePending,
+                                       lexicon: model.lexicon,
                                        copy: copy, delete: { pendingDeletion = $0 })
                     }
                 }

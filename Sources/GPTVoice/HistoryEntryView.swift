@@ -6,6 +6,7 @@ import SwiftUI
 struct HistoryEntryView: View {
     let entry: HistoryEntry
     let canCopy: Bool
+    let lexicon: LexiconLibrary
     /// Returns false when nothing was copied.
     let copy: () -> Bool
     let delete: () -> Void
@@ -14,6 +15,7 @@ struct HistoryEntryView: View {
     @State private var fullHeight: CGFloat = 0
     @State private var clampedHeight: CGFloat = 0
     @State private var copied = false
+    @State private var addingToLexicon = false
     @State private var resetCopied: Task<Void, Never>?
     @FocusState private var toggleFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -43,6 +45,10 @@ struct HistoryEntryView: View {
                         .disabled(!canCopy)
                         .opacity(canCopy ? 1 : 0.4)
                         .animation(AppMotion.control(reduceMotion), value: copied)
+                    QuietIconButton(symbol: "text.badge.plus", label: "加入词库 · Add a word or correction") {
+                        addingToLexicon = true
+                    }
+                    .popover(isPresented: $addingToLexicon, arrowEdge: .bottom) { lexiconPopover }
                     QuietIconButton(symbol: "trash", label: "Delete transcript", action: delete)
                 }
             }
@@ -74,6 +80,22 @@ struct HistoryEntryView: View {
         .padding(.bottom, 12)
         .animation(AppMotion.control(reduceMotion), value: expanded)
         .onDisappear { resetCopied?.cancel() }
+    }
+
+    private var lexiconPopover: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("加入词库 · Add to word list")
+                .font(AppType.rowTitle)
+            Text(LexiconEntryForm.seedText(entry.text).isEmpty
+                 ? "Select and copy the word from this transcript, then paste it here."
+                 : "Edit before adding. For a mishearing, choose Correction and type what you meant.")
+                .font(AppType.detail)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            LexiconEntryForm(library: lexicon, kind: .term, seed: entry.text)
+        }
+        .padding(16)
+        .frame(width: 480)
     }
 
     /// Time plus a delivery caption. Pasted names the destination; copied names the reason.
