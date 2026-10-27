@@ -49,22 +49,74 @@ enum CommandLineTool {
         return printJSON(result, to: .standardOutput) ? 0 : 1
     }
 
-    /// Settings and key presence only; the key is never read and nothing is migrated.
+    private static func chatSettings(_ defaults: UserDefaults) -> (enabled: Bool, baseURL: String, model: String) {
+        (defaults.bool(forKey: "chatCleanup"),
+                defaults.string(forKey: "chatCleanupBaseURL")?.trimmingCharacters(in: .whitespacesAndNewlines)
+                    ?? AppPreferences.defaultChatCleanupBaseURL,
+                defaults.string(forKey: "chatCleanupModel")?.trimmingCharacters(in: .whitespacesAndNewlines)
+                    ?? AppPreferences.defaultChatCleanupModel)
+    }
+
+    /// Settings and key presence only; the key is never read.
     private static func chatCleanupSummary() -> [String: Any] {
-        let defaults = UserDefaults.standard
-        let migrated = defaults.integer(forKey: "chatCleanupDefaultsVersion") >= 1
-        let stored = defaults.string(forKey: "chatCleanupBaseURL")?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let base = migrated
-            ? (stored?.isEmpty == false ? stored! : defaults.string(forKey: "openAIBaseURL") ?? "")
-            : AppPreferences.defaultChatCleanupBaseURL
+        let settings = chatSettings(.standard)
         return [
-            "enabled": migrated ? (defaults.object(forKey: "chatCleanup") as? Bool ?? true) : true,
-            "host": URL(string: base)?.host ?? "",
-            "model": migrated
-                ? (defaults.string(forKey: "chatCleanupModel") ?? AppPreferences.defaultChatCleanupModel)
-                : AppPreferences.defaultChatCleanupModel,
+            "enabled": settings.enabled,
+            "host": URL(string: settings.baseURL)?.host ?? "",
+            "model": settings.model,
+            "configured": !settings.baseURL.isEmpty && !settings.model.isEmpty,
             "chatKeyConfigured": KeychainSecretStore().containsSecret(for: KeychainSecretStore.chatAPIKeyAccount),
         ]
+    }
+
+    /// Live acceptance check: runs recorded mishears and an ordinary line through local cleanup, the
+    /// saved word list, and the configured chat server. Reads the chat key; never prints it.
+    static func checkChatCleanup() async -> Int32 {
+        let defaults = UserDefaults.standard
+        let settings = chatSettings(defaults)
+        guard !settings.baseURL.isEmpty, !settings.model.isEmpty else {
+            return usageError("Set Chat base URL and Chat model in Settings → Transcription → Chat cleanup first.")
+        }
+        guard case .value(let key) = KeychainSecretStore().readSecret(for: KeychainSecretStore.chatAPIKeyAccount),
+              !key.isEmpty else {
+            return usageError("No chat key is saved. Add it in Settings → Transcription → Chat cleanup.")
+        }
+        var lexicon = savedLexicon(defaults: defaults)
+        lexicon.merge(LexiconSeed(terms: ["锄禾日当午", "汗滴禾下土", "采菊东篱下", "悠然见南山"]))
+        let context = ChatCleanupContext(terms: lexicon.promptTerms(),
+                                         corrections: Array(lexicon.replacementList.prefix(ChatCleanupContext.maxCorrections)))
+        let cases: [(input: String, mustContain: String, mustKeep: Bool)] = [
+            ("彩鞠动篱下,悠然见南山。", "采菊东篱下", false),
+            ("出禾日当午,汗滴禾下土,", "锄禾日当午", false),
+            ("锄禾日当午,棺中有老虎。", "汗滴禾下土", false),
+            ("老板,帮我把鸟花拿过来。", "鸟花", true),
+        ]
+        var results: [[String: Any]] = []
+        var passed = true
+        for sample in cases {
+            let started = Date()
+            let local = await TranscriptPostProcessor.apply(
+                sample.input, deterministicCleanup: true, extraFilterWords: [], replacements: lexicon.replacementList,
+                chineseScript: .simplified, chat: nil, session: HTTPClient.shared)
+            var chatError: String?
+            var output = local
+            do {
+                output = ChineseScript.simplified.convert(try await ChatCleanupClient.clean(
+                    local, model: settings.model, baseURL: settings.baseURL, apiKey: key, context: context,
+                    session: HTTPClient.shared))
+            } catch {
+                chatError = error.localizedDescription
+            }
+            let ok = output.contains(sample.mustContain) && (!sample.mustKeep || output == local) && chatError == nil
+            passed = passed && ok
+            var row: [String: Any] = ["input": sample.input, "output": output, "pass": ok,
+                                      "seconds": (Date().timeIntervalSince(started) * 100).rounded() / 100]
+            if let chatError { row["chatError"] = chatError }
+            results.append(row)
+        }
+        let report: [String: Any] = ["host": URL(string: settings.baseURL)?.host ?? "", "model": settings.model,
+                                     "pass": passed, "cases": results]
+        return printJSON(report, to: .standardOutput) && passed ? 0 : 1
     }
 
     /// Counts only. Words and corrections never leave the file.

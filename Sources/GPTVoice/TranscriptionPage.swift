@@ -129,7 +129,7 @@ struct TranscriptionPage: View {
 
     private var chatGroup: some View {
         SettingsGroup(title: "Chat cleanup",
-                      footnote: "Runs after Transcription and your word list, only when you dictate. It has its own API key in the Keychain, separate from the Transcription key; the Transcription key is reused only when both URLs are on the same host. If the chat server fails or is slow, the local result is pasted.") {
+                      footnote: "Optional, off by default. Runs after Transcription and your word list, only when you dictate, and only once a base URL, model, and key are all set. It has its own API key in the Keychain, separate from the Transcription key; the Transcription key is reused only when both URLs are on the same host. If the chat server fails or is slow, the local result is pasted.") {
             SettingsRow(title: "LLM correction",
                         detail: "Sends each transcript and your word list to a chat model that fixes misheard words. Not used for speech-to-text.",
                         showsDivider: preferences.chatCleanup) {
@@ -138,19 +138,19 @@ struct TranscriptionPage: View {
             }
             if preferences.chatCleanup {
                 SettingsRow(title: "Chat base URL",
-                            detail: "CPA: \(AppPreferences.defaultChatCleanupBaseURL). Blank reuses the Transcription URL.") {
+                            detail: "Any OpenAI-compatible /v1 server. Separate from the Transcription URL.") {
                     AppTextField(label: "Chat base URL", text: $preferences.chatCleanupBaseURL,
-                                 placeholder: AppPreferences.defaultChatCleanupBaseURL)
+                                 placeholder: "https://…/v1")
                         .disabled(!model.canChangeSettings)
                 }
-                SettingsRow(title: "Chat model") {
-                    AppTextField(label: "Chat model", text: $preferences.chatCleanupModel,
-                                 placeholder: AppPreferences.defaultChatCleanupModel)
+                SettingsRow(title: "Chat model",
+                            detail: "A model id your chat server lists under /v1/models. Correction is skipped until set.") {
+                    AppTextField(label: "Chat model", text: $preferences.chatCleanupModel, placeholder: "model id")
                         .disabled(!model.canChangeSettings)
                 }
                 SettingsRow(title: "Chat API key", detail: chatKeyDetail, showsDivider: false) {
                     HStack(spacing: 8) {
-                        AppTextField(label: "Chat API key", text: $chatKeyDraft, placeholder: "CPA key", secure: true)
+                        AppTextField(label: "Chat API key", text: $chatKeyDraft, placeholder: "Chat server key", secure: true)
                             .disabled(!model.canChangeSettings)
                         Button("Save") {
                             model.saveChatCleanupKey(chatKeyDraft)
@@ -177,7 +177,7 @@ struct TranscriptionPage: View {
                                                       transcriptionBaseURL: preferences.openAIBaseURL) {
             return "Same host as Transcription, so its key is used unless you save one here."
         }
-        return "Required. This is your CPA key, not the Groq key. Without it, correction is skipped."
+        return "Required. The chat server's own key, not the Transcription key. Without it, correction is skipped."
     }
 
     private func languageChip(_ title: String, value: String? = nil) -> some View {

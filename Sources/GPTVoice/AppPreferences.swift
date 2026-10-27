@@ -26,7 +26,6 @@ final class AppPreferences: ObservableObject {
         static let chatCleanup = "chatCleanup"
         static let chatCleanupModel = "chatCleanupModel"
         static let chatCleanupBaseURL = "chatCleanupBaseURL"
-        static let chatCleanupDefaultsVersion = "chatCleanupDefaultsVersion"
         static let chineseScript = "chineseScript"
     }
 
@@ -130,26 +129,14 @@ final class AppPreferences: ObservableObject {
     /// Script conversion applies only when the language hint is Chinese.
     var effectiveChineseScript: ChineseScript { transcriptsInChinese ? chineseScript : .unchanged }
 
-    nonisolated static let defaultChatCleanupBaseURL = "https://cpa.aanao.cc/v1"
-    nonisolated static let defaultChatCleanupModel = "gemini-3.5-flash-lite"
+    /// No default server or model: chat cleanup does nothing until the user names both.
+    nonisolated static let defaultChatCleanupBaseURL = ""
+    nonisolated static let defaultChatCleanupModel = ""
 
-    /// Blank reuses the transcription server.
-    var chatCleanupEndpoint: String {
-        let base = chatCleanupBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        return base.isEmpty ? openAIBaseURL : base
-    }
-
-    /// Version 1 turns chat cleanup on through CPA once. Values the user typed are kept; only the
-    /// old defaults (off, blank URL, gpt-4o-mini) move.
-    private static func migrateChatCleanupDefaults(_ defaults: UserDefaults) {
-        guard defaults.integer(forKey: Key.chatCleanupDefaultsVersion) < 1 else { return }
-        defaults.set(true, forKey: Key.chatCleanup)
-        let url = defaults.string(forKey: Key.chatCleanupBaseURL)?.trimmingCharacters(in: .whitespacesAndNewlines)
-        if url?.isEmpty ?? true { defaults.set(defaultChatCleanupBaseURL, forKey: Key.chatCleanupBaseURL) }
-        let model = defaults.string(forKey: Key.chatCleanupModel)
-        if model == nil || model == "gpt-4o-mini" { defaults.set(defaultChatCleanupModel, forKey: Key.chatCleanupModel) }
-        defaults.set(1, forKey: Key.chatCleanupDefaultsVersion)
-    }
+    var chatCleanupEndpoint: String { chatCleanupBaseURL.trimmingCharacters(in: .whitespacesAndNewlines) }
+    var chatCleanupModelID: String { chatCleanupModel.trimmingCharacters(in: .whitespacesAndNewlines) }
+    /// URL and model are set. The key is checked separately, at dictation time.
+    var chatCleanupIsConfigured: Bool { !chatCleanupEndpoint.isEmpty && !chatCleanupModelID.isEmpty }
 
     var usesOpenAICompatible: Bool { transcriptionProvider == .openAICompatible }
 
@@ -183,11 +170,10 @@ final class AppPreferences: ObservableObject {
             Key.vocabularyWords: "",
             Key.vocabularyReplacements: "",
             Key.filterWords: "",
-            Key.chatCleanup: true,
+            Key.chatCleanup: false,
             Key.chatCleanupModel: Self.defaultChatCleanupModel,
             Key.chatCleanupBaseURL: Self.defaultChatCleanupBaseURL
         ])
-        Self.migrateChatCleanupDefaults(defaults)
         let stored = defaults.data(forKey: Key.hotkey).flatMap { try? JSONDecoder().decode(HotkeySpec.self, from: $0) }
         hotkey = stored.flatMap { $0.isValid ? $0 : nil } ?? .default
         automaticPaste = defaults.bool(forKey: Key.automaticPaste)

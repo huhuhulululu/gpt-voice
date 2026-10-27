@@ -42,70 +42,72 @@ final class ChatCleanupAppTests: XCTestCase {
         super.tearDown()
     }
 
-    func testFreshInstallUsesCPAWithChatCleanupOn() {
+    func testFreshInstallLeavesChatCleanupOffAndUnconfigured() {
         let preferences = AppPreferences(defaults: freshDefaults())
-        XCTAssertTrue(preferences.chatCleanup)
-        XCTAssertEqual(preferences.chatCleanupBaseURL, "https://cpa.aanao.cc/v1")
-        XCTAssertEqual(preferences.chatCleanupModel, "gemini-3.5-flash-lite")
-        XCTAssertEqual(preferences.chatCleanupEndpoint, "https://cpa.aanao.cc/v1")
+        XCTAssertFalse(preferences.chatCleanup)
+        XCTAssertEqual(preferences.chatCleanupBaseURL, "")
+        XCTAssertEqual(preferences.chatCleanupModel, "")
+        XCTAssertFalse(preferences.chatCleanupIsConfigured)
+        preferences.chatCleanupBaseURL = "https://chat.example.test/v1"
+        preferences.chatCleanupModel = " some-model "
+        XCTAssertTrue(preferences.chatCleanupIsConfigured)
+        XCTAssertEqual(preferences.chatCleanupModelID, "some-model")
     }
 
-    func testOldDefaultsMoveToCPAOnceAndALaterChoiceSticks() {
-        let defaults = freshDefaults()
-        defaults.set(false, forKey: "chatCleanup")
-        defaults.set("", forKey: "chatCleanupBaseURL")
-        defaults.set("gpt-4o-mini", forKey: "chatCleanupModel")
-        let migrated = AppPreferences(defaults: defaults)
-        XCTAssertTrue(migrated.chatCleanup)
-        XCTAssertEqual(migrated.chatCleanupBaseURL, "https://cpa.aanao.cc/v1")
-        XCTAssertEqual(migrated.chatCleanupModel, "gemini-3.5-flash-lite")
-        migrated.chatCleanup = false
-        migrated.chatCleanupModel = "my-model"
-        let reopened = AppPreferences(defaults: defaults)
-        XCTAssertFalse(reopened.chatCleanup)
-        XCTAssertEqual(reopened.chatCleanupModel, "my-model")
-
-        let custom = freshDefaults()
-        custom.set("http://127.0.0.1:8080/v1", forKey: "chatCleanupBaseURL")
-        XCTAssertEqual(AppPreferences(defaults: custom).chatCleanupBaseURL, "http://127.0.0.1:8080/v1")
-    }
-
-    func testGroqKeyIsNeverSentToCPA() async throws {
+    func testGroqKeyIsNeverSentToTheChatServer() async throws {
         let secrets = MemorySecretStore()
         try secrets.setSecret("groq-stt-key", for: KeychainSecretStore.apiKeyAccount)
         ChatRecorder.reset(content: "采菊东篱下，悠然见南山。")
         let model = makeModel(secrets: secrets, transcript: "彩鞠动篱下,悠然见南山。")
         model.transcribeFile(URL(fileURLWithPath: "/no-chat-key.wav"))
         try await waitUntil { if case .finished = model.phase { return true }; return false }
-        XCTAssertTrue(ChatRecorder.requests.isEmpty, "Without a CPA key, correction is skipped")
+        XCTAssertTrue(ChatRecorder.requests.isEmpty, "Without a chat key, correction is skipped")
         XCTAssertEqual(model.lastTranscript, "彩鞠动篱下,悠然见南山。")
 
-        try secrets.setSecret("cpa-chat-key", for: KeychainSecretStore.chatAPIKeyAccount)
+        try secrets.setSecret("chat-server-key", for: KeychainSecretStore.chatAPIKeyAccount)
         model.transcribeFile(URL(fileURLWithPath: "/with-chat-key.wav"))
         try await waitUntil { model.lastTranscript == "采菊东篱下，悠然见南山。" }
         let request = try XCTUnwrap(ChatRecorder.requests.last)
-        XCTAssertEqual(request.url?.host, "cpa.aanao.cc")
-        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer cpa-chat-key")
+        XCTAssertEqual(request.url?.host, "chat.example.test")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer chat-server-key")
         XCTAssertFalse(ChatRecorder.requests.contains {
             $0.value(forHTTPHeaderField: "Authorization")?.contains("groq-stt-key") == true
         })
     }
 
-    func testCPAFailureStillDeliversTheLocalText() async throws {
+    func testChatFailureStillDeliversTheLocalText() async throws {
         for status in [401, 503] {
             let secrets = MemorySecretStore()
             try secrets.setSecret("groq-stt-key", for: KeychainSecretStore.apiKeyAccount)
-            try secrets.setSecret("cpa-chat-key", for: KeychainSecretStore.chatAPIKeyAccount)
+            try secrets.setSecret("chat-server-key", for: KeychainSecretStore.chatAPIKeyAccount)
             ChatRecorder.reset(status: status)
             let model = makeModel(secrets: secrets, transcript: "出禾日当午,观众有老虎。")
             model.lexicon.addReplacement(mishear: "出禾", correct: "锄禾")
-            model.transcribeFile(URL(fileURLWithPath: "/cpa-\(status).wav"))
+            model.transcribeFile(URL(fileURLWithPath: "/chat-\(status).wav"))
             try await waitUntil { model.phase == .finished(.copied(.automaticPasteOff)) }
             XCTAssertEqual(ChatRecorder.requests.count, 1, "HTTP \(status)")
             XCTAssertEqual(model.lastTranscript, "锄禾日当午,观众有老虎。", "HTTP \(status)")
             await model.history.waitForPendingChanges()
             XCTAssertEqual(model.history.entries.first?.text, "锄禾日当午,观众有老虎。")
         }
+    }
+
+    func testMissingModelOrURLSkipsChatSilently() async throws {
+        let secrets = MemorySecretStore()
+        try secrets.setSecret("groq-stt-key", for: KeychainSecretStore.apiKeyAccount)
+        try secrets.setSecret("chat-server-key", for: KeychainSecretStore.chatAPIKeyAccount)
+        ChatRecorder.reset(content: "should not be used")
+        let model = makeModel(secrets: secrets, transcript: "出禾日当午")
+        model.lexicon.addReplacement(mishear: "出禾", correct: "锄禾")
+        model.preferences.chatCleanupModel = ""
+        model.transcribeFile(URL(fileURLWithPath: "/no-model.wav"))
+        try await waitUntil { model.phase == .finished(.copied(.automaticPasteOff)) }
+        model.preferences.chatCleanupModel = "test-chat-model"
+        model.preferences.chatCleanupBaseURL = "  "
+        model.transcribeFile(URL(fileURLWithPath: "/no-url.wav"))
+        try await waitUntil { model.phase == .finished(.copied(.automaticPasteOff)) }
+        XCTAssertTrue(ChatRecorder.requests.isEmpty)
+        XCTAssertEqual(model.lastTranscript, "锄禾日当午")
     }
 
     // MARK: Helpers
@@ -126,6 +128,9 @@ final class ChatCleanupAppTests: XCTestCase {
         preferences.openAIModel = "whisper-large-v3"
         preferences.transcriptionLanguage = "zh"
         preferences.automaticPaste = false
+        preferences.chatCleanup = true
+        preferences.chatCleanupBaseURL = "https://chat.example.test/v1"
+        preferences.chatCleanupModel = "test-chat-model"
         let clipboard = NSPasteboard.withUniqueName()
         let config = URLSessionConfiguration.ephemeral
         config.protocolClasses = [ChatRecorder.self]

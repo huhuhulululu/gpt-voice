@@ -876,12 +876,12 @@ final class AppModel: NSObject, ObservableObject {
             )
         }
         var chat: (model: String, baseURL: String, apiKey: String?)?
-        if preferences.chatCleanup, chatSession != nil {
+        // Missing URL, model, or key skips correction silently; the local result is delivered.
+        if preferences.chatCleanup, preferences.chatCleanupIsConfigured, chatSession != nil {
             let base = preferences.chatCleanupEndpoint
             let key = await chatCleanupAPIKey(transcriptionKey: apiKey, chatBaseURL: base)
-            // Without a key a hosted chat server can only answer 401; skip the round trip.
             if key != nil || OpenAICompatibleURL.isLocalHost(base) {
-                chat = (preferences.chatCleanupModel, base, key)
+                chat = (preferences.chatCleanupModelID, base, key)
             }
         }
         let processed = await TranscriptPostProcessor.applyReporting(
