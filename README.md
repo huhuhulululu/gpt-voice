@@ -50,7 +50,7 @@ If macOS shows a verification warning, ignore it and open **System Settings → 
 - A compact recording pill with input level, elapsed time, cancel and stop.
 - Automatic paste restores your clipboard. Turn it off to keep the transcript for **Command–V**.
 - Onboarding with permission recovery and an in-app practice step.
-- System, Light and Dark themes, seven accent colors and top or bottom pill placement.
+- System, Light and Dark themes, five accent colorways (Coral-Violet by default, Soft Blue, Sage, Amber, Graphite) and top or bottom pill placement.
 - Optional sound cues and launch at login. Launch at login starts off.
 - Short result notices that fade away. Local transcript history with copy and delete controls.
 - Optional OpenAI-compatible transcription, local cleanup, and a personal vocabulary list.

@@ -39,6 +39,25 @@ enum AppPalette {
         }
     }
 
+    /// One fixed sRGB color, the same in light and dark.
+    static func color(_ hex: UInt32) -> Color {
+        Color(nsColor: rgb(hex))
+    }
+
+    static func nsColor(_ hex: UInt32) -> NSColor {
+        rgb(hex)
+    }
+
+    /// Mixes two sRGB hex colors channel by channel. `amount` 0 is `from`, 1 is `to`.
+    static func mix(_ from: UInt32, _ to: UInt32, _ amount: Double) -> UInt32 {
+        func channel(_ shift: UInt32) -> UInt32 {
+            let a = Double((from >> shift) & 0xFF)
+            let b = Double((to >> shift) & 0xFF)
+            return UInt32((a + (b - a) * amount).rounded()) << shift
+        }
+        return channel(16) | channel(8) | channel(0)
+    }
+
     private static func rgb(_ hex: UInt32) -> NSColor {
         NSColor(srgbRed: CGFloat((hex >> 16) & 0xFF) / 255,
                 green: CGFloat((hex >> 8) & 0xFF) / 255,

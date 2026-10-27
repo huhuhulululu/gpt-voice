@@ -176,7 +176,12 @@ final class AppPreferences: ObservableObject {
         hapticCues = defaults.bool(forKey: Key.hapticCues)
         onboardingCompleted = defaults.bool(forKey: Key.onboardingCompleted)
         theme = defaults.string(forKey: Key.theme).flatMap(AppTheme.init(rawValue:)) ?? .system
-        accent = defaults.string(forKey: Key.accent).flatMap(AccentChoice.init(rawValue:)) ?? .system
+        let storedAccent = defaults.string(forKey: Key.accent)
+        let resolvedAccent = AccentChoice(storedValue: storedAccent)
+        accent = resolvedAccent
+        if let storedAccent, storedAccent != resolvedAccent.rawValue {
+            defaults.set(resolvedAccent.rawValue, forKey: Key.accent)
+        }
         overlayPlacement = defaults.string(forKey: Key.overlayPlacement)
             .flatMap(OverlayPlacement.init(rawValue:)) ?? .bottom
         manualPasteHelpDismissed = defaults.bool(forKey: Key.manualPasteHelpDismissed)
