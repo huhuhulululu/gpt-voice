@@ -1,3 +1,4 @@
+import Security
 import XCTest
 @testable import DictationCore
 
@@ -98,7 +99,21 @@ final class SecretStoreTests: XCTestCase {
         let store = MemorySecretStore()
         try store.setSecret("sk-test", for: KeychainSecretStore.apiKeyAccount)
         XCTAssertEqual(store.secret(for: KeychainSecretStore.apiKeyAccount), "sk-test")
+        XCTAssertTrue(store.containsSecret(for: KeychainSecretStore.apiKeyAccount))
         try store.setSecret("", for: KeychainSecretStore.apiKeyAccount)
         XCTAssertNil(store.secret(for: KeychainSecretStore.apiKeyAccount))
+        XCTAssertFalse(store.containsSecret(for: KeychainSecretStore.apiKeyAccount))
+    }
+
+    func testPresenceQueryNeverRequestsKeychainUI() {
+        let query = KeychainPresence.query(service: "com.vishesh.codex-dictation",
+                                           account: KeychainSecretStore.apiKeyAccount)
+        XCTAssertEqual(query[kSecUseAuthenticationUI as String] as? String,
+                       kSecUseAuthenticationUIFail as String)
+        XCTAssertEqual(query[kSecReturnData as String] as? Bool, false)
+        XCTAssertTrue(KeychainPresence.itemExists(status: errSecSuccess))
+        XCTAssertTrue(KeychainPresence.itemExists(status: errSecInteractionNotAllowed))
+        XCTAssertTrue(KeychainPresence.itemExists(status: errSecAuthFailed))
+        XCTAssertFalse(KeychainPresence.itemExists(status: errSecItemNotFound))
     }
 }

@@ -109,4 +109,52 @@ final class TranscriptionPreferencesTests: XCTestCase {
         XCTAssertEqual(model.practiceTranscript, "a clear thought.")
         XCTAssertEqual(model.lastTranscript, "a clear thought.")
     }
+
+    func testRefreshStatusDoesNotUnlockTheAPIKey() {
+        let secrets = CountingSecretStore([KeychainSecretStore.apiKeyAccount: "sk-test"])
+        let model = AppModel(preferences: AppPreferences(defaults: UserDefaults(suiteName: "goice-key-\(UUID().uuidString)")!),
+                             history: TranscriptionHistory(fileURL: FileManager.default.temporaryDirectory.appendingPathComponent("gpt-voice-test-\(UUID().uuidString)/history.json")),
+                             secrets: secrets) { _ in "ok" }
+        defer { model.cleanup() }
+        model.refreshStatus()
+        XCTAssertEqual(secrets.secretCalls, 0)
+        XCTAssertGreaterThan(secrets.containsCalls, 0)
+        XCTAssertTrue(model.openAIKeyPresent)
+    }
+}
+
+/// Counts Keychain reads. Menu/status must use containsSecret, never secret().
+private final class CountingSecretStore: SecretStore, @unchecked Sendable {
+    private let lock = NSLock()
+    private var values: [String: String]
+    private(set) var secretCalls = 0
+    private(set) var containsCalls = 0
+
+    init(_ initial: [String: String] = [:]) {
+        values = initial
+    }
+
+    func secret(for account: String) -> String? {
+        lock.lock()
+        defer { lock.unlock() }
+        secretCalls += 1
+        return values[account]
+    }
+
+    func containsSecret(for account: String) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        containsCalls += 1
+        return values[account] != nil
+    }
+
+    func setSecret(_ value: String?, for account: String) throws {
+        lock.lock()
+        defer { lock.unlock() }
+        if let value, !value.isEmpty {
+            values[account] = value
+        } else {
+            values.removeValue(forKey: account)
+        }
+    }
 }

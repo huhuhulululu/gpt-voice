@@ -746,7 +746,7 @@ final class AppModel: NSObject, ObservableObject {
         isTestingConnection = true
         connectionTest = nil
         let endpoint = preferences.openAIEndpoint
-        let key = secrets.secret(for: KeychainSecretStore.apiKeyAccount)
+        let key = lockedSecret(for: KeychainSecretStore.apiKeyAccount)
         Task {
             let result = await OpenAICompatibleClient().testConnection(endpoint: endpoint, apiKey: key)
             guard !Task.isCancelled else { return }
@@ -758,11 +758,15 @@ final class AppModel: NSObject, ObservableObject {
     // MARK: Private
 
     private func refreshSecretFlags() {
-        if let key = secrets.secret(for: KeychainSecretStore.apiKeyAccount), !key.isEmpty {
-            openAIKeyPresent = true
-        } else {
-            openAIKeyPresent = false
-        }
+        // Presence only. Reading the item here would put a Keychain sheet up while
+        // the menu-bar menu is tracking, which eats password keystrokes.
+        openAIKeyPresent = secrets.containsSecret(for: KeychainSecretStore.apiKeyAccount)
+    }
+
+    private func lockedSecret(for account: String) -> String? {
+        shortcut?.setModifierHoldPaused(true)
+        defer { shortcut?.setModifierHoldPaused(false) }
+        return secrets.secret(for: account)
     }
 
     private func performTranscription(_ url: URL) async throws -> String {
@@ -776,7 +780,7 @@ final class AppModel: NSObject, ObservableObject {
                 language: preferences.openAIEndpoint.languageHint,
                 prompt: preferences.vocabularyPrompt,
                 openAI: preferences.openAIEndpoint,
-                apiKey: secrets.secret(for: KeychainSecretStore.apiKeyAccount)
+                apiKey: lockedSecret(for: KeychainSecretStore.apiKeyAccount)
             )
         }
         let chat: (model: String, baseURL: String, apiKey: String?)?
@@ -785,8 +789,8 @@ final class AppModel: NSObject, ObservableObject {
             chat = (
                 preferences.chatCleanupModel,
                 base.isEmpty ? preferences.openAIBaseURL : base,
-                secrets.secret(for: KeychainSecretStore.chatAPIKeyAccount)
-                    ?? secrets.secret(for: KeychainSecretStore.apiKeyAccount)
+                lockedSecret(for: KeychainSecretStore.chatAPIKeyAccount)
+                    ?? lockedSecret(for: KeychainSecretStore.apiKeyAccount)
             )
         } else {
             chat = nil

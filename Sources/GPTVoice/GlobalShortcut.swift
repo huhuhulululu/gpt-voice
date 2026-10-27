@@ -101,6 +101,15 @@ final class GlobalShortcut {
         holdListener = nil
     }
 
+    /// Stops hold tracking without unregistering. Use while a Keychain sheet is up.
+    func setModifierHoldPaused(_ paused: Bool) {
+        holdListener?.isPaused = paused
+        if paused {
+            holdWatchToken += 1
+            holdListener?.resetTracking()
+        }
+    }
+
     /// Removes the active shortcut.
     func unregister() {
         holdWatchToken += 1

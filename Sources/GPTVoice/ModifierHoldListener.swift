@@ -11,6 +11,8 @@ final class ModifierHoldListener {
     /// Last device-dependent modifier bits. `flagsChanged` key codes are not reliable.
     private var deviceFlags: UInt = 0
     private var armToken = 0
+    /// When true, events are ignored so SecurityAgent can receive the password.
+    var isPaused = false
 
     init(keyCode: UInt32, onBegan: @escaping @MainActor () -> Void, onEnded: @escaping @MainActor () -> Void,
          onCancelled: @escaping @MainActor () -> Void) {
@@ -42,6 +44,7 @@ final class ModifierHoldListener {
     }
 
     func stop() {
+        isPaused = false
         armToken += 1
         for monitor in monitors { NSEvent.removeMonitor(monitor) }
         monitors.removeAll()
@@ -49,7 +52,15 @@ final class ModifierHoldListener {
         deviceFlags = 0
     }
 
+    /// Drops an in-flight hold without removing the monitors.
+    func resetTracking() {
+        armToken += 1
+        tracker.reset()
+        deviceFlags = 0
+    }
+
     private func handle(_ event: NSEvent) {
+        guard !isPaused, !HoldInputGate.shouldBypass else { return }
         switch event.type {
         case .flagsChanged:
             perform(consumeFlags(event))

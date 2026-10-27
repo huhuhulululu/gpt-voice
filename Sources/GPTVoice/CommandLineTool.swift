@@ -12,7 +12,7 @@ enum CommandLineTool {
     /// Prints status JSON. Reads status only.
     static func diagnose() -> Int32 {
         FontRegistration.registerBundledFonts()
-        let keyConfigured = KeychainSecretStore().secret(for: KeychainSecretStore.apiKeyAccount)?.isEmpty == false
+        let keyConfigured = KeychainSecretStore().containsSecret(for: KeychainSecretStore.apiKeyAccount)
         var result: [String: Any] = [
             "appVersion": appVersion,
             "displayName": AppBrand.displayName,

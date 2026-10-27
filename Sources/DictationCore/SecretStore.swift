@@ -4,7 +4,33 @@ import Security
 /// Stores API keys. Never logs values. UserDefaults is not used for secrets.
 public protocol SecretStore: Sendable {
     func secret(for account: String) -> String?
+    /// Presence only. Must not show Keychain or SecurityAgent UI.
+    func containsSecret(for account: String) -> Bool
     func setSecret(_ value: String?, for account: String) throws
+}
+
+/// Keychain lookup that never presents an unlock sheet.
+public enum KeychainPresence {
+    public static func query(service: String, account: String) -> [String: Any] {
+        [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+            kSecReturnData as String: false,
+            kSecMatchLimit as String: kSecMatchLimitOne,
+            kSecUseAuthenticationUI as String: kSecUseAuthenticationUIFail
+        ]
+    }
+
+    /// Locked items still count as present so status checks do not prompt.
+    public static func itemExists(status: OSStatus) -> Bool {
+        switch status {
+        case errSecSuccess, errSecInteractionNotAllowed, errSecAuthFailed:
+            return true
+        default:
+            return false
+        }
+    }
 }
 
 public struct KeychainSecretStore: SecretStore, Sendable {
@@ -15,6 +41,13 @@ public struct KeychainSecretStore: SecretStore, Sendable {
 
     public init(service: String = "com.vishesh.codex-dictation") {
         self.service = service
+    }
+
+    public func containsSecret(for account: String) -> Bool {
+        var item: CFTypeRef?
+        let status = SecItemCopyMatching(KeychainPresence.query(service: service, account: account) as CFDictionary,
+                                         &item)
+        return KeychainPresence.itemExists(status: status)
     }
 
     public func secret(for account: String) -> String? {
@@ -59,6 +92,10 @@ public final class MemorySecretStore: SecretStore, @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         return values[account]
+    }
+
+    public func containsSecret(for account: String) -> Bool {
+        secret(for: account) != nil
     }
 
     public func setSecret(_ value: String?, for account: String) throws {

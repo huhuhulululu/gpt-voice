@@ -53,6 +53,8 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     }
 
     func menuNeedsUpdate(_ menu: NSMenu) {
+        // Status only. Must not unlock Keychain — a sheet during menu tracking
+        // steals the keyboard from SecurityAgent.
         model.refreshStatus()
         menu.removeAllItems()
 
