@@ -37,7 +37,7 @@ struct TranscriptionPage: View {
             }
 
             cleanupGroup
-            vocabularyGroup
+            LexiconSection(library: model.lexicon)
             chatGroup
         }
         .onAppear { apiKeyDraft = "" }
@@ -121,24 +121,6 @@ struct TranscriptionPage: View {
                         detail: "Optional. Comma-separated. Built-in fillers such as um and 嗯 stay on when cleanup is enabled.",
                         showsDivider: false) {
                 AppTextField(label: "Extra filter words", text: $preferences.filterWords, placeholder: "kinda, 那个")
-                    .disabled(!model.canChangeSettings)
-            }
-        }
-    }
-
-    private var vocabularyGroup: some View {
-        SettingsGroup(footnote: "Custom words go into the transcription prompt as a glossary sentence. Replacements run on this Mac after STT.") {
-            SettingsRow(title: "Custom words",
-                        detail: "Names and terms to prefer. Useful for Chinese proper nouns.") {
-                AppTextField(label: "Custom words", text: $preferences.vocabularyWords,
-                             placeholder: "Goice, 专有名词")
-                    .disabled(!model.canChangeSettings)
-            }
-            SettingsRow(title: "Replacements",
-                        detail: "One per line: mishear => correct",
-                        showsDivider: false) {
-                AppTextField(label: "Replacements", text: $preferences.vocabularyReplacements,
-                             placeholder: "go ice => Goice")
                     .disabled(!model.canChangeSettings)
             }
         }

@@ -19,6 +19,14 @@ enum PasteOutcome: Equatable {
     /// The clipboard changed during dictation. It was not replaced. Offer Copy.
     case preservedNewerClipboard
 
+    /// The text reached the target app or the clipboard.
+    var delivered: Bool {
+        switch self {
+        case .pasted, .copied: return true
+        case .previewed, .preservedNewerClipboard: return false
+        }
+    }
+
     var message: String {
         switch self {
         case .previewed:

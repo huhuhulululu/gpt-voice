@@ -36,6 +36,14 @@ enum CommandLineTool {
         return printJSON(result, to: .standardOutput) ? 0 : 1
     }
 
+    /// Read-only: the CLI never migrates or writes the word list.
+    private static func savedLexicon(defaults: UserDefaults) -> Lexicon {
+        let url = LexiconLibrary.defaultFileURL(besides: TranscriptionHistory.defaultFileURL)
+        if case .loaded(let lexicon) = LexiconStore(fileURL: url).load(movingUnreadableAside: false) { return lexicon }
+        return Lexicon.migrating(words: defaults.string(forKey: "vocabularyWords") ?? "",
+                                 replacements: defaults.string(forKey: "vocabularyReplacements") ?? "")
+    }
+
     /// Prints only the transcript to stdout. Failures go to stderr.
     static func transcribe(path: String) async -> Int32 {
         let url = URL(fileURLWithPath: path)
@@ -48,9 +56,8 @@ enum CommandLineTool {
                 language: defaults.string(forKey: "transcriptionLanguage") ?? ""
             )
             let script = ChineseScript(rawValue: defaults.string(forKey: "chineseScript") ?? "") ?? .simplified
-            let prompt = Vocabulary.transcriptionPrompt(
-                words: Vocabulary.parseWordList(defaults.string(forKey: "vocabularyWords") ?? ""),
-                language: endpoint.languageHint, script: script)
+            let prompt = savedLexicon(defaults: defaults)
+                .transcriptionPrompt(language: endpoint.languageHint, script: script)
             let apiKey = provider == .openAICompatible
                 ? KeychainSecretStore().secret(for: KeychainSecretStore.apiKeyAccount) : nil
             let raw = try await TranscriptionService.transcribe(

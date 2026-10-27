@@ -90,10 +90,12 @@ final class AppPreferences: ObservableObject {
         didSet { defaults.set(deterministicCleanup, forKey: Key.deterministicCleanup) }
     }
 
+    /// Legacy comma list. Read once to seed `lexicon.json`, then left untouched for downgrades.
     @Published var vocabularyWords: String {
         didSet { defaults.set(vocabularyWords, forKey: Key.vocabularyWords) }
     }
 
+    /// Legacy `mishear => correct` lines. Read once to seed `lexicon.json`.
     @Published var vocabularyReplacements: String {
         didSet { defaults.set(vocabularyReplacements, forKey: Key.vocabularyReplacements) }
     }
@@ -123,15 +125,9 @@ final class AppPreferences: ObservableObject {
     }
 
     var extraFilterWords: [String] { Vocabulary.parseWordList(filterWords) }
-    var vocabularyWordList: [String] { Vocabulary.parseWordList(vocabularyWords) }
-    var replacementList: [VocabularyReplacement] { Vocabulary.parseReplacements(vocabularyReplacements) }
     var transcriptsInChinese: Bool { ChineseScript.isChinese(transcriptionLanguage) }
     /// Script conversion applies only when the language hint is Chinese.
     var effectiveChineseScript: ChineseScript { transcriptsInChinese ? chineseScript : .unchanged }
-    var transcriptionPrompt: String? {
-        Vocabulary.transcriptionPrompt(words: vocabularyWordList, language: transcriptionLanguage,
-                                       script: chineseScript)
-    }
 
     var usesOpenAICompatible: Bool { transcriptionProvider == .openAICompatible }
 

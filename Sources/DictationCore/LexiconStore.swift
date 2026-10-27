@@ -5,7 +5,8 @@ public struct LexiconStore: Sendable {
     public enum Load: Equatable, Sendable {
         case loaded(Lexicon)
         case missing
-        /// The file could not be decoded. It was moved aside to `preserved` so nothing is overwritten.
+        /// The file could not be decoded. When allowed, it was moved aside to `preserved` so the next
+        /// save does not overwrite it.
         case unreadable(preserved: URL?)
     }
 
@@ -13,7 +14,7 @@ public struct LexiconStore: Sendable {
 
     public init(fileURL: URL) { self.fileURL = fileURL }
 
-    public func load() -> Load {
+    public func load(movingUnreadableAside: Bool = true) -> Load {
         let manager = FileManager.default
         guard manager.fileExists(atPath: fileURL.path) else { return .missing }
         if let data = try? Data(contentsOf: fileURL),
@@ -21,6 +22,7 @@ public struct LexiconStore: Sendable {
            lexicon.version == Lexicon.currentVersion {
             return .loaded(lexicon)
         }
+        guard movingUnreadableAside else { return .unreadable(preserved: nil) }
         let stamp = Int(Date().timeIntervalSince1970)
         let aside = fileURL.deletingLastPathComponent()
             .appendingPathComponent("lexicon-unreadable-\(stamp).json")

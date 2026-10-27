@@ -9,6 +9,7 @@ import ServiceManagement
 final class AppModel: NSObject, ObservableObject {
     let preferences: AppPreferences
     let history: TranscriptionHistory
+    let lexicon: LexiconLibrary
 
     @Published private(set) var phase: DictationPhase = .idle
     @Published private(set) var connection: ConnectionStatus = .checking
@@ -65,11 +66,18 @@ final class AppModel: NSObject, ObservableObject {
 
     init(preferences: AppPreferences? = nil, pasteboard: NSPasteboard? = nil,
          history: TranscriptionHistory? = nil,
+         lexicon: LexiconLibrary? = nil,
          pasteEnvironment: PasteCoordinator.Environment = .live,
          secrets: SecretStore = KeychainSecretStore(),
          transcribeAudio: (@Sendable (URL) async throws -> String)? = nil) {
-        self.preferences = preferences ?? AppPreferences()
-        self.history = history ?? TranscriptionHistory()
+        let preferences = preferences ?? AppPreferences()
+        let history = history ?? TranscriptionHistory()
+        self.preferences = preferences
+        self.history = history
+        self.lexicon = lexicon ?? LexiconLibrary(
+            fileURL: LexiconLibrary.defaultFileURL(besides: history.fileURL),
+            legacyWords: preferences.vocabularyWords,
+            legacyReplacements: preferences.vocabularyReplacements)
         self.secrets = secrets
         self.transcribeAudio = transcribeAudio
         audio = AudioCapture()
@@ -811,9 +819,11 @@ final class AppModel: NSObject, ObservableObject {
         return await readSecret(KeychainSecretStore.apiKeyAccount).value
     }
 
-    private func performTranscription(_ url: URL) async throws -> String {
+    /// Returns the provider's raw text (for rule hit counts) and the text to deliver.
+    private func performTranscription(_ url: URL) async throws -> (raw: String, text: String) {
         let apiKey = try await transcriptionAPIKey()
-        let prompt = preferences.transcriptionPrompt
+        let prompt = lexicon.transcriptionPrompt(language: preferences.transcriptionLanguage,
+                                                 script: preferences.chineseScript)
         let raw: String
         if let transcribeAudio {
             raw = try await transcribeAudio(url)
@@ -838,16 +848,17 @@ final class AppModel: NSObject, ObservableObject {
         } else {
             chat = nil
         }
-        return await TranscriptPostProcessor.apply(
+        let text = await TranscriptPostProcessor.apply(
             raw,
             deterministicCleanup: preferences.deterministicCleanup,
             extraFilterWords: preferences.extraFilterWords,
-            replacements: preferences.replacementList,
+            replacements: lexicon.replacementList,
             chineseScript: preferences.effectiveChineseScript,
             prompt: prompt,
             chat: chat,
             session: HTTPClient.shared
         )
+        return (raw, text)
     }
 
     private func captureEnded(url: URL) {
@@ -871,9 +882,12 @@ final class AppModel: NSObject, ObservableObject {
         activeAudio = url
         phase = .transcribing
         operation = Task {
+            let raw: String
             let text: String
             do {
-                text = try await performTranscription(url)
+                let result = try await performTranscription(url)
+                raw = result.raw
+                text = result.text
                 if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     throw DictationError.emptyTranscript
                 }
@@ -900,6 +914,7 @@ final class AppModel: NSObject, ObservableObject {
             phase = .pasting
             let outcome = await paste.deliver(text: text, automaticPaste: preferences.automaticPaste)
             await history.append(HistoryEntry(text: text, createdAt: completedAt, delivery: HistoryDelivery(outcome)))
+            if outcome.delivered { lexicon.recordUsage(raw: raw, delivered: text) }
             operation = nil
             if current == generation { phase = .finished(outcome) }
         }
