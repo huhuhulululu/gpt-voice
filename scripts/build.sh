@@ -12,12 +12,16 @@ for option in "$@"; do
     *) echo "Usage: $0 [--install] [--universal]" >&2; exit 2 ;;
   esac
 done
+# The bundle executable is Goice so Activity Monitor and `ps` show the product name. The SPM product
+# stays GPTVoice, and the bundle id and signing identifier stay com.vishesh.codex-dictation: the
+# Keychain item and TCC grants are keyed on those, not on the file name.
+executable_name=Goice
 app_version=$(cat VERSION)
 build_number=$(cat BUILD_NUMBER)
 [[ "$app_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid VERSION" >&2; exit 1; }
 [[ "$build_number" =~ ^[0-9]+$ ]] || { echo "Invalid BUILD_NUMBER" >&2; exit 1; }
 check_launch() {
-  python3 - "$1/Contents/MacOS/GPTVoice" <<'PYTHON'
+  python3 - "$1/Contents/MacOS/$executable_name" <<'PYTHON'
 import json, subprocess, sys
 try:
     result = subprocess.run([sys.argv[1], "--diagnose"], capture_output=True, timeout=8, check=True)
@@ -40,12 +44,12 @@ trap 'rm -rf "$build_staging_dir"' EXIT
 app_dir="$build_staging_dir/Goice.app"
 mkdir -p "$app_dir/Contents/MacOS" "$app_dir/Contents/Resources"
 if $universal; then
-  lipo -create "$binary_dir/GPTVoice" "$intel_binary_dir/GPTVoice" -output "$app_dir/Contents/MacOS/GPTVoice"
-  architectures=$(lipo -archs "$app_dir/Contents/MacOS/GPTVoice")
+  lipo -create "$binary_dir/GPTVoice" "$intel_binary_dir/GPTVoice" -output "$app_dir/Contents/MacOS/$executable_name"
+  architectures=$(lipo -archs "$app_dir/Contents/MacOS/$executable_name")
   [[ " $architectures " == *" arm64 "* && " $architectures " == *" x86_64 "* ]] \
     || { echo "The universal app is missing an architecture." >&2; exit 1; }
 else
-  cp "$binary_dir/GPTVoice" "$app_dir/Contents/MacOS/GPTVoice"
+  cp "$binary_dir/GPTVoice" "$app_dir/Contents/MacOS/$executable_name"
 fi
 resource_bundle="$binary_dir/GPTVoice_GPTVoice.bundle"
 if [[ -d "$resource_bundle" ]]; then
@@ -61,7 +65,7 @@ cat > "$app_dir/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-<key>CFBundleExecutable</key><string>GPTVoice</string>
+<key>CFBundleExecutable</key><string>Goice</string>
 <key>CFBundleIdentifier</key><string>com.vishesh.codex-dictation</string>
 <key>CFBundleName</key><string>Goice</string>
 <key>CFBundleDisplayName</key><string>Goice</string>

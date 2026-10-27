@@ -58,14 +58,14 @@ def main():
     try:
         packaged_app = mount / app.name
         subprocess.run(['codesign', '--verify', '--strict', '--all-architectures', str(packaged_app)], check=True)
-        if (packaged_app / 'Contents/MacOS/GPTVoice').read_bytes() != (app / 'Contents/MacOS/GPTVoice').read_bytes():
+        if (packaged_app / 'Contents/MacOS/Goice').read_bytes() != (app / 'Contents/MacOS/Goice').read_bytes():
             raise RuntimeError('The disk image executable differs from the signed app.')
     finally:
         subprocess.run(['hdiutil', 'detach', str(mount)], check=True)
 
     info = plistlib.loads((app / 'Contents/Info.plist').read_bytes())
     report = {'file': output.name, 'version': info['CFBundleShortVersionString'],
-              'architectures': run('lipo', '-archs', str(app / 'Contents/MacOS/GPTVoice')).strip(),
+              'architectures': run('lipo', '-archs', str(app / 'Contents/MacOS/Goice')).strip(),
               'preview': args.preview, 'developer_id': developer_id,
               'unnotarized_release': args.unnotarized,
               'notarized_app_verified': notarized, 'packaged_signature_verified': True,

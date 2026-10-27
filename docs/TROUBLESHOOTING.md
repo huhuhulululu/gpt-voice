@@ -68,7 +68,7 @@ You can also [build from source](../README.md#build-from-source).
 ## Diagnostics
 
 ```sh
-"/Applications/Goice.app/Contents/MacOS/GPTVoice" --diagnose
+"/Applications/Goice.app/Contents/MacOS/Goice" --diagnose
 ```
 
 Review the output before sharing it. It does not print account credentials.
