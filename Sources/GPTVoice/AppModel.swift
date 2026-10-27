@@ -44,6 +44,9 @@ final class AppModel: NSObject, ObservableObject {
     private let paste: PasteCoordinator
     private let transcribeAudio: (@Sendable (URL) async throws -> String)?
     private let injectedChatSession: URLSession?
+    /// The last delivered dictation, kept in memory only, to continue the next Whisper prompt.
+    private var continuation: (text: String, at: Date, provider: TranscriptionProvider, language: String)?
+    static let continuationWindow: TimeInterval = 120
     let secrets: SecretStore
     private var shortcut: GlobalShortcut?
     private var generation = 0
@@ -852,6 +855,16 @@ final class AppModel: NSObject, ObservableObject {
         return transcriptionKey
     }
 
+    /// Checked when the next dictation starts; nothing expires it in the background. Clearing or
+    /// deleting that History entry also drops it.
+    func continuationContext(now: Date) -> String? {
+        guard let continuation, history.entries.first?.text == continuation.text,
+              continuation.provider == preferences.transcriptionProvider,
+              continuation.language == preferences.transcriptionLanguage,
+              now.timeIntervalSince(continuation.at) <= Self.continuationWindow else { return nil }
+        return continuation.text
+    }
+
     /// Injected transcribers are test doubles: they reach a chat server only through an injected session.
     private var chatSession: URLSession? {
         injectedChatSession ?? (transcribeAudio == nil ? HTTPClient.shared : nil)
@@ -861,7 +874,8 @@ final class AppModel: NSObject, ObservableObject {
     private func performTranscription(_ url: URL) async throws -> (raw: String, text: String) {
         let apiKey = try await transcriptionAPIKey()
         let prompt = lexicon.transcriptionPrompt(language: preferences.transcriptionLanguage,
-                                                 script: preferences.chineseScript)
+                                                 script: preferences.chineseScript,
+                                                 context: continuationContext(now: Date()))
         let raw: String
         if let transcribeAudio {
             raw = try await transcribeAudio(url)
@@ -951,7 +965,10 @@ final class AppModel: NSObject, ObservableObject {
             phase = .pasting
             let outcome = await paste.deliver(text: text, automaticPaste: preferences.automaticPaste)
             await history.append(HistoryEntry(text: text, createdAt: completedAt, delivery: HistoryDelivery(outcome)))
-            if outcome.delivered { lexicon.recordUsage(raw: raw, delivered: text) }
+            if outcome.delivered {
+                lexicon.recordUsage(raw: raw, delivered: text)
+                continuation = (text, completedAt, preferences.transcriptionProvider, preferences.transcriptionLanguage)
+            }
             operation = nil
             if current == generation { phase = .finished(outcome) }
         }

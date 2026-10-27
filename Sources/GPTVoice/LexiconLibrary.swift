@@ -35,8 +35,8 @@ final class LexiconLibrary: ObservableObject {
 
     func promptTerms(now: Date = Date()) -> Set<String> { Set(lexicon.promptTerms(now: now)) }
 
-    func transcriptionPrompt(language: String?, script: ChineseScript) -> String? {
-        lexicon.transcriptionPrompt(language: language, script: script)
+    func transcriptionPrompt(language: String?, script: ChineseScript, context: String? = nil) -> String? {
+        lexicon.transcriptionPrompt(language: language, script: script, context: context)
     }
 
     /// Prompt terms plus the most used corrections, for the chat corrector.

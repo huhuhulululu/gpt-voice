@@ -63,7 +63,7 @@ final class ChatCleanupAppTests: XCTestCase {
         model.transcribeFile(URL(fileURLWithPath: "/no-chat-key.wav"))
         try await waitUntil { if case .finished = model.phase { return true }; return false }
         XCTAssertTrue(ChatRecorder.requests.isEmpty, "Without a chat key, correction is skipped")
-        XCTAssertEqual(model.lastTranscript, "彩鞠动篱下,悠然见南山。")
+        XCTAssertEqual(model.lastTranscript, "彩鞠动篱下，悠然见南山。")
 
         try secrets.setSecret("chat-server-key", for: KeychainSecretStore.chatAPIKeyAccount)
         model.transcribeFile(URL(fileURLWithPath: "/with-chat-key.wav"))
@@ -87,9 +87,9 @@ final class ChatCleanupAppTests: XCTestCase {
             model.transcribeFile(URL(fileURLWithPath: "/chat-\(status).wav"))
             try await waitUntil { model.phase == .finished(.copied(.automaticPasteOff)) }
             XCTAssertEqual(ChatRecorder.requests.count, 1, "HTTP \(status)")
-            XCTAssertEqual(model.lastTranscript, "锄禾日当午,观众有老虎。", "HTTP \(status)")
+            XCTAssertEqual(model.lastTranscript, "锄禾日当午，观众有老虎。", "HTTP \(status)")
             await model.history.waitForPendingChanges()
-            XCTAssertEqual(model.history.entries.first?.text, "锄禾日当午,观众有老虎。")
+            XCTAssertEqual(model.history.entries.first?.text, "锄禾日当午，观众有老虎。")
         }
     }
 
@@ -109,6 +109,28 @@ final class ChatCleanupAppTests: XCTestCase {
         try await waitUntil { model.phase == .finished(.copied(.automaticPasteOff)) }
         XCTAssertTrue(ChatRecorder.requests.isEmpty)
         XCTAssertEqual(model.lastTranscript, "锄禾日当午")
+    }
+
+    func testPreviousDictationContinuesThePromptOnlyBriefly() async throws {
+        let secrets = MemorySecretStore()
+        try secrets.setSecret("groq-stt-key", for: KeychainSecretStore.apiKeyAccount)
+        let model = makeModel(secrets: secrets, transcript: "锄禾日当午，汗滴禾下土。")
+        model.preferences.chatCleanup = false
+        XCTAssertNil(model.continuationContext(now: Date()))
+        model.transcribeFile(URL(fileURLWithPath: "/context.wav"))
+        try await waitUntil { model.phase == .finished(.copied(.automaticPasteOff)) }
+        await model.history.waitForPendingChanges()
+        let now = Date()
+        XCTAssertEqual(model.continuationContext(now: now), "锄禾日当午，汗滴禾下土。")
+        XCTAssertNil(model.continuationContext(now: now.addingTimeInterval(AppModel.continuationWindow + 1)))
+        model.preferences.transcriptionLanguage = "en"
+        XCTAssertNil(model.continuationContext(now: now))
+        model.preferences.transcriptionLanguage = "zh"
+        model.preferences.transcriptionProvider = .codex
+        XCTAssertNil(model.continuationContext(now: now))
+        model.preferences.transcriptionProvider = .openAICompatible
+        await model.history.clear()
+        XCTAssertNil(model.continuationContext(now: now))
     }
 
     // MARK: Helpers

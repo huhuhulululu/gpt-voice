@@ -172,7 +172,8 @@ public enum TranscriptPostProcessor {
                                                                 apiKey: chat.apiKey, context: chatContext,
                                                                 session: session)
                 if !cleaned.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    result = chineseScript.convert(cleaned)
+                    let converted = chineseScript.convert(cleaned)
+                    result = deterministicCleanup ? TranscriptCleanup.normalizeChinesePunctuation(converted) : converted
                 }
             } catch {
                 // Keep the deterministic result.

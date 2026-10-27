@@ -148,9 +148,10 @@ public struct Lexicon: Codable, Equatable, Sendable {
     }
 
     public func transcriptionPrompt(language: String?, script: ChineseScript = .simplified,
-                                    now: Date = Date()) -> String? {
+                                    context: String? = nil, now: Date = Date()) -> String? {
         Vocabulary.transcriptionPrompt(words: promptTerms(now: now), language: language, script: script,
-                                       maxTerms: Self.maxPromptTerms, tokenBudget: Self.promptTokenBudget)
+                                       maxTerms: Self.maxPromptTerms, tokenBudget: Self.promptTokenBudget,
+                                       context: context)
     }
 
     // MARK: Migration

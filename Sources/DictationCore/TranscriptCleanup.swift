@@ -45,6 +45,7 @@ public enum TranscriptCleanup {
         result = stripFilterWords(result, words: filterWords)
         result = pruneTrailingPhrases(result, phrases: endPrunePhrases)
         result = normalizeWhitespaceAndPunctuation(result)
+        result = normalizeChinesePunctuation(result)
         if isWholeTranscript(result, in: wholeTranscriptPhrases) { return "" }
         return result
     }
@@ -121,6 +122,43 @@ public enum TranscriptCleanup {
         result = replace("[，、,]\\s*([。！？.!?])", in: result, with: "$1")
         result = replace("^[\\s，、,；;]+", in: result, with: "")
         return result.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Chinese text only (Han without kana): fullwidth letters and digits become ASCII, ASCII
+    /// punctuation after a Han character becomes Chinese punctuation, spaces around Chinese
+    /// punctuation go, and doubled 。 or ， collapse. `3.14`, `v1.2`, `12:30` and English stay as they are.
+    public static func normalizeChinesePunctuation(_ text: String) -> String {
+        guard containsHan(text), !containsKana(text) else { return text }
+        var result = String(String.UnicodeScalarView(text.unicodeScalars.map { scalar in
+            switch scalar.value {
+            case 0xFF10...0xFF19, 0xFF21...0xFF3A, 0xFF41...0xFF5A:
+                return Unicode.Scalar(scalar.value - 0xFEE0) ?? scalar
+            default:
+                return scalar
+            }
+        }))
+        let han = "\\p{Han}"
+        result = replace("(?<=\(han))\\s*(?:\\.{3,}|…+)", in: result, with: "……")
+        result = replace("(?<=\(han))\\s*,\\s*", in: result, with: "，")
+        result = replace("(?<=\(han))\\s*\\?\\s*", in: result, with: "？")
+        result = replace("(?<=\(han))\\s*!\\s*", in: result, with: "！")
+        result = replace("(?<=\(han))\\s*;\\s*", in: result, with: "；")
+        result = replace("(?<=\(han))\\s*:\\s*(?=\\D|$)", in: result, with: "：")
+        result = replace("(?<=\(han))\\s*\\.(?=\\s*$|\\s*\\p{Han})\\s*", in: result, with: "。")
+        result = replace("\\s+(?=[，。！？；：、）」』】》])", in: result, with: "")
+        result = replace("(?<=[，。！？；：、（「『【《])\\s+", in: result, with: "")
+        result = replace("。{2,}", in: result, with: "。")
+        result = replace("，{2,}", in: result, with: "，")
+        result = replace("[，、]+(?=[。！？])", in: result, with: "")
+        return result.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    static func containsHan(_ text: String) -> Bool {
+        text.unicodeScalars.contains { (0x3400...0x9FFF).contains($0.value) }
+    }
+
+    static func containsKana(_ text: String) -> Bool {
+        text.unicodeScalars.contains { (0x3040...0x30FF).contains($0.value) }
     }
 
     static func isWholeTranscript(_ text: String, in phrases: [String]) -> Bool {

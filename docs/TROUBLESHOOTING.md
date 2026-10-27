@@ -3,7 +3,7 @@
 ## Sign-in
 
 Install [Codex CLI](https://developers.openai.com/codex/cli/) before starting browser sign-in.
-Goice checks `/opt/homebrew/bin`, `/usr/local/bin`, `~/.local/bin` and the app's PATH for `codex`.
+Goice looks for `codex` in this order: the Homebrew cask (`/opt/homebrew` or `/usr/local` `Caskroom/codex/<version>`, newest stable version first, then an in-progress `.upgrading` one), Homebrew `bin`, the CLI bundled in `/Applications/ChatGPT.app` (or `~/Applications`), Conductor (`~/Library/Application Support/com.conductor.app/bin`), `~/.local/bin`, then the app's PATH. Symlinks are resolved, and a candidate must be an executable file. `Goice --diagnose` prints the path it found as `codexCLIPath`.
 If a custom installation is not found, place the executable in one of those locations, then reopen the app.
 
 Select **Sign in with ChatGPT** in the app. The flow uses Codex CLI's browser login.

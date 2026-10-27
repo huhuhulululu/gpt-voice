@@ -72,22 +72,22 @@ final class ChatCleanupTests: XCTestCase {
             replacements: poemContext.corrections, chineseScript: .simplified,
             chat: ("test-chat-model", chatURL, "chat-test-key"), chatContext: poemContext, session: session())
         XCTAssertEqual(result.text, "采菊东篱下，悠然见南山。")
-        XCTAssertEqual(result.beforeReplacements, "彩鞠动篱下,悠然见南山。")
+        XCTAssertEqual(result.beforeReplacements, "彩鞠动篱下，悠然见南山。")
         let body = String(decoding: StubURLProtocol.lastBody ?? Data(), as: UTF8.self)
-        XCTAssertTrue(body.contains("采菊东篱下,悠然见南山。"), "Chat sees the text after exact corrections")
+        XCTAssertTrue(body.contains("采菊东篱下，悠然见南山。"), "Chat sees the text after exact corrections")
     }
 
     func testOrdinaryLineComesBackUnchanged() async {
-        StubURLProtocol.response = (200, reply("老板,帮我把鸟花拿过来。"))
+        StubURLProtocol.response = (200, reply("老板，帮我把鸟花拿过来。"))
         let text = await TranscriptPostProcessor.apply(
             "老板,帮我把鸟花拿过来。", deterministicCleanup: true, extraFilterWords: [], replacements: [],
             chineseScript: .simplified, chat: ("test-chat-model", chatURL, "chat-test-key"),
             chatContext: poemContext, session: session())
-        XCTAssertEqual(text, "老板,帮我把鸟花拿过来。")
+        XCTAssertEqual(text, "老板，帮我把鸟花拿过来。")
     }
 
     func testFailuresKeepTheDeterministicText() async {
-        let deterministic = "锄禾日当午,观众有老虎。"
+        let deterministic = "锄禾日当午，观众有老虎。"
         for (status, body) in [(401, Data(#"{"error":"bad key"}"#.utf8)), (500, Data()), (503, Data("down".utf8)),
                                (200, Data("not json".utf8)), (200, reply("")),
                                (200, reply("好的！以下是修正后的文本，我还补充了整首诗的赏析：锄禾日当午，汗滴禾下土。谁知盘中餐，粒粒皆辛苦。"))] {
