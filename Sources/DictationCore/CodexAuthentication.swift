@@ -2,6 +2,7 @@ import Foundation
 
 public enum CodexAuthentication {
     public static var cliAvailable: Bool { CodexTokenRefresh.executable != nil }
+    public static var cliPath: String? { CodexTokenRefresh.executable?.path }
 
     public static func refresh() async throws -> CodexCredentials {
         try await CodexTokenRefresh.refresh()

@@ -18,6 +18,14 @@ final class TranscriptionPreferencesTests: XCTestCase {
         XCTAssertEqual(AppBrand.displayName, "Goice")
     }
 
+    func testExistingOpenAICompatibleChoiceIsKept() {
+        let defaults = UserDefaults(suiteName: "goice-provider-\(UUID().uuidString)")!
+        defaults.set(TranscriptionProvider.openAICompatible.rawValue, forKey: "transcriptionProvider")
+        XCTAssertEqual(AppPreferences(defaults: defaults).transcriptionProvider, .openAICompatible)
+        defaults.set("unknown", forKey: "transcriptionProvider")
+        XCTAssertEqual(AppPreferences(defaults: defaults).transcriptionProvider, .codex)
+    }
+
     func testGroqPresetFillsCompatibleURLAndModel() {
         let preferences = AppPreferences(defaults: UserDefaults(suiteName: "goice-groq-\(UUID().uuidString)")!)
         let model = AppModel(preferences: preferences,

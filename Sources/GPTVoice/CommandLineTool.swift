@@ -21,6 +21,7 @@ enum CommandLineTool {
             "accessibility": AccessibilityPermission.check(),
             "inputMonitoring": InputMonitoringPermission.isGranted,
             "codexCLIAvailable": CodexAuthentication.cliAvailable,
+            "codexCLIPath": CodexAuthentication.cliPath ?? "",
             "transcriptionProvider": UserDefaults.standard.string(forKey: "transcriptionProvider") ?? "codex",
             "openAIKeyConfigured": keyConfigured,
             "bundledFonts": FontRegistration.fontAvailability,
