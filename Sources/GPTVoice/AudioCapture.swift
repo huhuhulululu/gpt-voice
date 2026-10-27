@@ -31,8 +31,13 @@ final class AudioCapture: NSObject, AVAudioRecorderDelegate {
     func currentLevel() -> Float {
         guard let recorder else { return 0 }
         recorder.updateMeters()
-        let decibels = recorder.averagePower(forChannel: 0)
-        return max(0, min(1, (decibels + 50) / 50))
+        return Self.meterLevel(decibels: recorder.averagePower(forChannel: 0))
+    }
+
+    /// Speech sits between about -52 and -10 dBFS on a laptop mic. Mapping that span keeps quiet
+    /// speech visible in the meter; the old -50…0 span left a soft voice almost flat.
+    nonisolated static func meterLevel(decibels: Float) -> Float {
+        max(0, min(1, (decibels + 52) / 42))
     }
 
     /// Asks for microphone access on first use, then starts recording.

@@ -1,15 +1,7 @@
 import Foundation
 
 struct CodexTokenRefresh {
-    static var executable: URL? {
-        let searchPath = ProcessInfo.processInfo.environment["PATH"] ?? ""
-        let environmentPaths = searchPath.split(separator: ":").filter { $0.hasPrefix("/") }
-            .map { URL(fileURLWithPath: String($0)).appendingPathComponent("codex").path }
-        let paths = ["/opt/homebrew/bin/codex", "/usr/local/bin/codex",
-                     FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".local/bin/codex").path]
-            + environmentPaths
-        return paths.first { FileManager.default.isExecutableFile(atPath: $0) }.map { URL(fileURLWithPath: $0) }
-    }
+    static var executable: URL? { CodexExecutableLocator.locate() }
 
     static func refresh() async throws -> CodexCredentials {
         guard let executable else { throw DictationError.refreshUnavailable }

@@ -19,6 +19,14 @@ enum PasteOutcome: Equatable {
     /// The clipboard changed during dictation. It was not replaced. Offer Copy.
     case preservedNewerClipboard
 
+    /// The text reached the target app or the clipboard.
+    var delivered: Bool {
+        switch self {
+        case .pasted, .copied: return true
+        case .previewed, .preservedNewerClipboard: return false
+        }
+    }
+
     var message: String {
         switch self {
         case .previewed:
@@ -73,7 +81,7 @@ extension PasteOutcome.ManualReason {
         case .automaticPasteOff:
             return "Automatic paste is off. Press ⌘V, or turn paste on in Settings → Paste & behavior."
         case .accessibilityMissing:
-            return "Allow GPT Voice in System Settings → Privacy & Security → Accessibility, then reopen the app."
+            return "Allow \(AppBrand.displayName) in System Settings → Privacy & Security → Accessibility, then reopen the app."
         case .targetChanged:
             return "You changed apps during dictation, so automatic paste was skipped. Press ⌘V."
         case .noTarget:

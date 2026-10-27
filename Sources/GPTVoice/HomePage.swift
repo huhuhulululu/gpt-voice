@@ -22,7 +22,7 @@ struct HomePage: View {
             SettingsGroup(footnote: ready
                 ? preferences.hotkey.usageInstruction
                 : "Dictation works once the items marked here are fixed.") {
-                ConnectionPanel(model: model, prominentSignIn: false)
+                transcriptionStatus
                     .disabled(!model.canChangeSettings)
                 RowDivider()
                 MicrophoneCard(model: model, prominent: false)
@@ -59,6 +59,23 @@ struct HomePage: View {
             }
 
             InfoDisclosure(label: "How dictation works", text: howDictationWorks)
+        }
+    }
+
+    @ViewBuilder private var transcriptionStatus: some View {
+        if preferences.usesOpenAICompatible {
+            let ready = model.transcriptionIsReady
+            StatusRow(tone: ready ? .good : .attention,
+                      symbol: ready ? "checkmark.circle.fill" : "exclamationmark.circle.fill",
+                      title: ready ? preferences.transcriptionHostTitle : "Transcription server needed",
+                      detail: ready
+                        ? "Audio goes to \(preferences.openAIModel)."
+                        : "Add a base URL and API key in Transcription. Groq uses https://api.groq.com/openai/v1.") {
+                Button("Configure") { goTo(.transcription) }
+                    .buttonStyle(AppButtonStyle(kind: .quiet, small: true))
+            }
+        } else {
+            ConnectionPanel(model: model, prominentSignIn: false)
         }
     }
 

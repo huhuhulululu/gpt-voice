@@ -13,7 +13,7 @@ struct ActivityIndicator: View {
             .stroke(Color.secondary, style: StrokeStyle(lineWidth: 1.6, lineCap: .round))
             .frame(width: size, height: size)
             .rotationEffect(.degrees(spinning ? 360 : 0))
-            .animation(reduceMotion ? nil : .linear(duration: 0.9).repeatForever(autoreverses: false), value: spinning)
+            .animation(reduceMotion ? nil : .linear(duration: 0.75).repeatForever(autoreverses: false), value: spinning)
             .onAppear { spinning = !reduceMotion }
             .accessibilityHidden(true)
     }

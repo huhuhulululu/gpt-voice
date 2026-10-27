@@ -13,9 +13,16 @@ struct GPTVoiceEntryPoint {
             exit(CommandLineTool.diagnose())
         case "--transcribe":
             guard let path = value(after: "--transcribe", in: arguments) else {
-                exit(CommandLineTool.usageError("Usage: GPTVoice --transcribe FILE"))
+                exit(CommandLineTool.usageError("Usage: Goice --transcribe FILE"))
             }
             runAsync { await CommandLineTool.transcribe(path: path) }
+        case "--import-lexicon":
+            guard let path = value(after: "--import-lexicon", in: arguments) else {
+                exit(CommandLineTool.usageError("Usage: Goice --import-lexicon FILE"))
+            }
+            exit(CommandLineTool.importLexicon(path: path))
+        case "--check-chat-cleanup":
+            runAsync { await CommandLineTool.checkChatCleanup() }
         case "--refresh-auth-check":
             runAsync { await CommandLineTool.refreshAuthCheck() }
         case "--show-onboarding":
@@ -24,12 +31,12 @@ struct GPTVoiceEntryPoint {
             launchOptions = .showSettings
         case "--transcribe-and-paste":
             guard let path = value(after: "--transcribe-and-paste", in: arguments) else {
-                exit(CommandLineTool.usageError("Usage: GPTVoice --transcribe-and-paste FILE"))
+                exit(CommandLineTool.usageError("Usage: Goice --transcribe-and-paste FILE"))
             }
             launchOptions = .transcribeAndPaste(URL(fileURLWithPath: path))
         case "--practice-audio":
             guard let path = value(after: "--practice-audio", in: arguments) else {
-                exit(CommandLineTool.usageError("Usage: GPTVoice --practice-audio FILE"))
+                exit(CommandLineTool.usageError("Usage: Goice --practice-audio FILE"))
             }
             launchOptions = .practiceAudio(URL(fileURLWithPath: path))
         case nil:
@@ -37,7 +44,7 @@ struct GPTVoiceEntryPoint {
         default:
             if arguments.first?.hasPrefix("-psn") != true {
                 exit(CommandLineTool.usageError(
-                    "Options: --diagnose, --transcribe FILE, --refresh-auth-check, --show-onboarding, "
+                    "Options: --diagnose, --transcribe FILE, --import-lexicon FILE, --check-chat-cleanup, --refresh-auth-check, --show-onboarding, "
                     + "--show-settings, --transcribe-and-paste FILE, --practice-audio FILE"))
             }
         }

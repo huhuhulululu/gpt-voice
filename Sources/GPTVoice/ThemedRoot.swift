@@ -17,6 +17,7 @@ struct ThemedRoot<Content: View>: View {
             .environment(\.appAccent, preferences.accent.foreground)
             .environment(\.appAccentFill, preferences.accent.color)
             .environment(\.appAccentOnFill, preferences.accent.onFill)
+            .environment(\.appAccentChoice, preferences.accent)
             .tint(preferences.accent.tint)
     }
 }

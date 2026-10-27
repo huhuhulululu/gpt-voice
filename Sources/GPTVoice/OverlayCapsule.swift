@@ -1,20 +1,18 @@
 import SwiftUI
 
-/// The compact static preview. The live panel owns one continuously resizing surface.
+/// The compact static bar, for the Appearance preview and for measuring. The live panel owns one
+/// continuously resizing surface instead.
 struct OverlayCapsule: View {
     let state: DictationOverlayState
     let actions: DictationOverlayActions
+    var sampleWaveform: [CGFloat]? = nil
 
     var body: some View {
-        HStack(spacing: 10) {
-            OverlayCapsuleContent(state: state, actions: actions)
-        }
-        .padding(.leading, 14)
-        .padding(.trailing, 8)
-        .frame(height: 40)
-        .fixedSize(horizontal: true, vertical: false)
-        .modifier(OverlaySurface(shape: Capsule()))
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Dictation status")
+        OverlayCapsuleContent(state: state, actions: actions, sampleWaveform: sampleWaveform)
+            .frame(height: OverlayMetrics.height)
+            .fixedSize(horizontal: true, vertical: false)
+            .modifier(OverlaySurface(cornerRadius: OverlayMetrics.cornerRadius))
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Dictation status")
     }
 }

@@ -14,8 +14,8 @@ def run(*args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--app', type=Path, default=Path('dist/GPT Voice.app'))
-    parser.add_argument('--output', type=Path, default=Path('dist/GPT-Voice.dmg'))
+    parser.add_argument('--app', type=Path, default=Path('dist/Goice.app'))
+    parser.add_argument('--output', type=Path, default=Path('dist/Goice.dmg'))
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument('--preview', action='store_true', help='Allow an unnotarized local preview.')
     mode.add_argument('--unnotarized', action='store_true', help='Package an explicitly disclosed, certificate-signed unnotarized release.')
@@ -39,12 +39,12 @@ def main():
         subprocess.run(['spctl', '--assess', '--type', 'execute', '--verbose=2', str(app)], check=True)
     import dmgbuild
     output.parent.mkdir(parents=True, exist_ok=True)
-    dmgbuild.build_dmg(str(output), 'GPT Voice', settings={
+    dmgbuild.build_dmg(str(output), 'Goice', settings={
         'format': 'UDZO', 'compression_level': 9, 'filesystem': 'HFS+',
         'files': [str(app)], 'symlinks': {'Applications': '/Applications'},
         'background': str(background),
         'badge_icon': str(app / 'Contents/Resources/AppIcon.icns'),
-        'icon_locations': {'GPT Voice.app': (210, 255), 'Applications': (550, 255)},
+        'icon_locations': {app.name: (210, 255), 'Applications': (550, 255)},
         'window_rect': ((160, 120), (760, 560)), 'icon_size': 112, 'text_size': 13,
         'show_toolbar': False, 'show_status_bar': False, 'show_pathbar': False,
         'show_sidebar': False, 'default_view': 'icon-view', 'include_icon_view_settings': True,
@@ -58,14 +58,14 @@ def main():
     try:
         packaged_app = mount / app.name
         subprocess.run(['codesign', '--verify', '--strict', '--all-architectures', str(packaged_app)], check=True)
-        if (packaged_app / 'Contents/MacOS/GPTVoice').read_bytes() != (app / 'Contents/MacOS/GPTVoice').read_bytes():
+        if (packaged_app / 'Contents/MacOS/Goice').read_bytes() != (app / 'Contents/MacOS/Goice').read_bytes():
             raise RuntimeError('The disk image executable differs from the signed app.')
     finally:
         subprocess.run(['hdiutil', 'detach', str(mount)], check=True)
 
     info = plistlib.loads((app / 'Contents/Info.plist').read_bytes())
     report = {'file': output.name, 'version': info['CFBundleShortVersionString'],
-              'architectures': run('lipo', '-archs', str(app / 'Contents/MacOS/GPTVoice')).strip(),
+              'architectures': run('lipo', '-archs', str(app / 'Contents/MacOS/Goice')).strip(),
               'preview': args.preview, 'developer_id': developer_id,
               'unnotarized_release': args.unnotarized,
               'notarized_app_verified': notarized, 'packaged_signature_verified': True,

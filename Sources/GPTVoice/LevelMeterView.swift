@@ -1,8 +1,10 @@
 import SwiftUI
 
 /// Five bars driven only by the real input level. Silence shows flat bars.
+/// Attack is faster than release so speech reads immediately and decay stays smooth.
 struct LevelMeterView: View {
     let level: Float
+    @State private var displayed: CGFloat = 0
     @Environment(\.appAccent) private var accent
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -18,11 +20,18 @@ struct LevelMeterView: View {
                     Capsule()
                         .fill(accent)
                         .frame(width: Self.barWidth,
-                               height: max(Self.minimumHeight, proxy.size.height * weight * CGFloat(level)))
+                               height: max(Self.minimumHeight, proxy.size.height * weight * displayed))
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.07), value: level)
+        }
+        .onAppear { displayed = CGFloat(level) }
+        .onChange(of: level) { newLevel in
+            let next = CGFloat(newLevel)
+            let rising = next > displayed
+            withAnimation(reduceMotion ? nil : .easeOut(duration: rising ? 0.055 : 0.14)) {
+                displayed = next
+            }
         }
         .accessibilityElement()
         .accessibilityLabel("Input level")

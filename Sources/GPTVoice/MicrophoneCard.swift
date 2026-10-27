@@ -21,7 +21,7 @@ struct MicrophoneCard: View {
             }
         case .denied:
             StatusRow(tone: .problem, symbol: "mic.slash.fill", title: "Microphone blocked",
-                      detail: "Turn on GPT Voice in System Settings → Privacy & Security → Microphone, then return here.") {
+                      detail: "Turn on \(AppBrand.displayName) in System Settings → Privacy & Security → Microphone, then return here.") {
                 settingsButton
                 recheck
             }

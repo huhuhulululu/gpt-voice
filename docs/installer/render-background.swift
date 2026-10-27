@@ -1,4 +1,4 @@
-// Renders the GPT Voice DMG window background: a standard Finder window, 760 x 500 points.
+// Renders the Goice DMG window background: a standard Finder window, 760 x 500 points.
 // Light paper in the app's canvas color, the WaveMark and wordmark at the top, one instruction line,
 // and an arrow between the app icon (210, 255) and the Applications link (550, 255).
 // Finder draws the icons and their labels; this image leaves that area empty.
@@ -74,7 +74,7 @@ func drawBackground() {
     NSGradient(starting: paperTop, ending: paperBottom)?.draw(in: bounds, angle: 90)
 
     // Header: WaveMark and wordmark as one centered group.
-    let wordmark = NSAttributedString(string: "GPT Voice", attributes: [
+    let wordmark = NSAttributedString(string: "Goice", attributes: [)
         .font: wordmarkFont, .foregroundColor: ink, .kern: -0.4,
     ])
     let markSize = NSSize(width: 24, height: 24)
@@ -113,7 +113,7 @@ func drawBackground() {
     head.line(to: NSPoint(x: end.x - 9, y: end.y + 9))
     head.stroke()
 
-    let footnote = NSAttributedString(string: "Then open GPT Voice from your Applications folder.", attributes: [
+    let footnote = NSAttributedString(string: "Then open Goice from your Applications folder.", attributes: [)
         .font: footnoteFont, .foregroundColor: tertiaryInk,
     ])
     centered(footnote, centerX: canvas.width / 2, top: 446)

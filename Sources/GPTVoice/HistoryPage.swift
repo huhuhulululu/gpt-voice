@@ -16,9 +16,9 @@ struct HistoryPage: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
             if let message = history.errorMessage {
-                HStack(alignment: .firstTextBaseline, spacing: 12) {
-                    ErrorMessage(text: message)
-                    Spacer(minLength: 8)
+                StatusRow(tone: .problem, symbol: "exclamationmark.triangle.fill",
+                          title: history.entries.isEmpty ? "History could not be loaded" : "Couldn’t save the latest change",
+                          detail: message) {
                     Button("Try again") { Task { await history.retrySave() } }
                         .buttonStyle(AppButtonStyle(kind: .secondary, isLoading: history.isUpdating, small: true))
                         .disabled(history.isUpdating)
@@ -28,8 +28,10 @@ struct HistoryPage: View {
             if history.isLoading {
                 HStack(spacing: 8) {
                     ActivityIndicator(size: 11)
-                    Text("Loading").font(AppType.detail).foregroundStyle(.secondary)
+                    Text("Loading saved transcripts").font(AppType.detail).foregroundStyle(.secondary)
                 }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Loading saved transcripts")
             } else if history.entries.isEmpty {
                 // After a read error the message above is the whole state, so no "empty" claim.
                 if history.errorMessage == nil { empty }
@@ -38,6 +40,7 @@ struct HistoryPage: View {
                     ForEach(days, id: \.day) { day in
                         HistoryDayView(day: day.day, entries: day.entries,
                                        canCopy: !model.isPasteLeasePending,
+                                       lexicon: model.lexicon,
                                        copy: copy, delete: { pendingDeletion = $0 })
                     }
                 }
@@ -56,9 +59,9 @@ struct HistoryPage: View {
 
     private var empty: some View {
         SettingsGroup {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text("No transcripts yet").font(AppType.rowTitle)
-                Text("Dictate with \(model.preferences.hotkey.displayLabel). Each transcript is saved here, on this Mac. Pasted rows name the app; copied rows say why paste was skipped.")
+                Text("Hold \(model.preferences.hotkey.displayLabel), speak, and release. Successful dictations are saved here on this Mac. Pasted rows name the app; copied rows say why paste was skipped.")
                     .font(AppType.detail)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

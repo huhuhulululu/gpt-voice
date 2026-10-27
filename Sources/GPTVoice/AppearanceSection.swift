@@ -19,7 +19,8 @@ struct AppearanceSection: View {
                                  title: \.title, selection: $preferences.overlayPlacement)
                 }
             }
-            SettingsGroup(title: "Recording bar") {
+            SettingsGroup(title: "Recording bar",
+                          footnote: "The bar never activates Goice or takes key focus, including over fullscreen apps.") {
                 AppearancePreview()
             }
         }

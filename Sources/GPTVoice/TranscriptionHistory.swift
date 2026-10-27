@@ -6,18 +6,20 @@ final class TranscriptionHistory: ObservableObject {
     @Published private(set) var isLoading = true
     @Published private(set) var isUpdating = false
     @Published private(set) var errorMessage: String?
+    let fileURL: URL
     private let repository: HistoryRepository
     private var pending: Task<Void, Never>?
     private var queuedChanges = 0
 
-    static var defaultFileURL: URL {
+    nonisolated static var defaultFileURL: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("GPT Voice", isDirectory: true)
             .appendingPathComponent("history.json")
     }
 
     init(fileURL: URL? = nil) {
-        repository = HistoryRepository(fileURL: fileURL ?? Self.defaultFileURL)
+        self.fileURL = fileURL ?? Self.defaultFileURL
+        repository = HistoryRepository(fileURL: self.fileURL)
         enqueue(.load)
     }
 

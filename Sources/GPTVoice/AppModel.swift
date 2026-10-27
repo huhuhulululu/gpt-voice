@@ -9,6 +9,7 @@ import ServiceManagement
 final class AppModel: NSObject, ObservableObject {
     let preferences: AppPreferences
     let history: TranscriptionHistory
+    let lexicon: LexiconLibrary
 
     @Published private(set) var phase: DictationPhase = .idle
     @Published private(set) var connection: ConnectionStatus = .checking
@@ -31,10 +32,22 @@ final class AppModel: NSObject, ObservableObject {
     @Published private(set) var lastTranscript: String?
     @Published private(set) var practiceTranscript: String?
     @Published private(set) var isPracticeSession = false
+    @Published private(set) var openAIKeyPresent = false
+    /// The chat-cleanup key has its own Keychain slot, separate from the transcription key.
+    @Published private(set) var chatKeyPresent = false
+    @Published private(set) var connectionTest: ConnectionTestResult?
+    @Published private(set) var isTestingConnection = false
+    /// Settings opens this page when set, then clears it.
+    @Published var preferredSettingsPage: SettingsPage?
 
     private let audio: AudioCapture
     private let paste: PasteCoordinator
-    private let transcribeAudio: @Sendable (URL) async throws -> String
+    private let transcribeAudio: (@Sendable (URL) async throws -> String)?
+    private let injectedChatSession: URLSession?
+    /// The last delivered dictation, kept in memory only, to continue the next Whisper prompt.
+    private var continuation: (text: String, at: Date, provider: TranscriptionProvider, language: String)?
+    static let continuationWindow: TimeInterval = 120
+    let secrets: SecretStore
     private var shortcut: GlobalShortcut?
     private var generation = 0
     private var operation: Task<Void, Never>?
@@ -53,18 +66,28 @@ final class AppModel: NSObject, ObservableObject {
     /// Chosen modifier hold waiting for Input Monitoring. Applied once the grant appears.
     private var pendingModifierHold: HotkeySpec?
     private var lastInputMonitoringGrant = InputMonitoringPermission.isGranted
+    private let keychainQueue = DispatchQueue(label: "com.vishesh.codex-dictation.keychain", qos: .userInitiated)
 
     static let installCodexURL = URL(string: "https://developers.openai.com/codex/cli/")!
 
     init(preferences: AppPreferences? = nil, pasteboard: NSPasteboard? = nil,
          history: TranscriptionHistory? = nil,
+         lexicon: LexiconLibrary? = nil,
          pasteEnvironment: PasteCoordinator.Environment = .live,
-         transcribeAudio: @escaping @Sendable (URL) async throws -> String = {
-             try await TranscriptionClient().transcribe(file: $0)
-         }) {
-        self.preferences = preferences ?? AppPreferences()
-        self.history = history ?? TranscriptionHistory()
+         secrets: SecretStore = KeychainSecretStore(),
+         chatSession: URLSession? = nil,
+         transcribeAudio: (@Sendable (URL) async throws -> String)? = nil) {
+        let preferences = preferences ?? AppPreferences()
+        let history = history ?? TranscriptionHistory()
+        self.preferences = preferences
+        self.history = history
+        self.lexicon = lexicon ?? LexiconLibrary(
+            fileURL: LexiconLibrary.defaultFileURL(besides: history.fileURL),
+            legacyWords: preferences.vocabularyWords,
+            legacyReplacements: preferences.vocabularyReplacements)
+        self.secrets = secrets
         self.transcribeAudio = transcribeAudio
+        injectedChatSession = chatSession
         audio = AudioCapture()
         paste = PasteCoordinator(pasteboard: pasteboard ?? .general, environment: pasteEnvironment)
         super.init()
@@ -82,6 +105,8 @@ final class AppModel: NSObject, ObservableObject {
 
     var statusText: String { phase.statusText }
     var canStart: Bool { !phase.isBusy && !paste.isLeasePending }
+    /// For `--diagnose`: the 20 Hz meter runs only while recording.
+    var isMeterRunning: Bool { meterTimer != nil }
     var canRetry: Bool { failedAudio != nil && !phase.isBusy }
     var canChangeSettings: Bool { !phase.isBusy && !paste.isLeasePending }
     var hotkey: HotkeySpec { preferences.hotkey }
@@ -92,13 +117,22 @@ final class AppModel: NSObject, ObservableObject {
         hotkey == .leftOption && shortcut?.current == .leftOption && hotkeyError == nil
     }
     var isReadyToDictate: Bool {
-        connection.isUsable && (microphone == .granted || microphone == .notRequested)
+        transcriptionIsReady && (microphone == .granted || microphone == .notRequested)
+    }
+
+    var transcriptionIsReady: Bool {
+        switch preferences.transcriptionProvider {
+        case .codex: return connection.isUsable
+        case .openAICompatible: return preferences.openAICompatibleIsReady(hasAPIKey: openAIKeyPresent)
+        }
     }
 
     /// Items still missing for onboarding. Accessibility is optional.
     var missingRequirements: [String] {
         var missing: [String] = []
-        if !connection.isUsable { missing.append("Sign in with ChatGPT") }
+        if !transcriptionIsReady {
+            missing.append(preferences.usesOpenAICompatible ? "Configure transcription" : "Sign in with ChatGPT")
+        }
         if microphone != .granted { missing.append("Allow microphone access") }
         if hotkeyError != nil || shortcut?.current == nil { missing.append("Choose a working shortcut") }
         return missing
@@ -126,6 +160,7 @@ final class AppModel: NSObject, ObservableObject {
     func refreshStatus() {
         cliAvailable = CodexAuthentication.cliAvailable
         if signInTask == nil { connection = ConnectionStatus.current() }
+        refreshSecretFlags()
         microphone = PermissionStatus(AudioCapture.microphoneStatus)
         accessibilityTrusted = AccessibilityPermission.check()
         launchAtLogin = LaunchAtLoginStatus.current()
@@ -235,9 +270,14 @@ final class AppModel: NSObject, ObservableObject {
         if practice { practiceTranscript = nil }
         // Stay on the cached sign-in and permission flags. A full refresh reads
         // auth.json and can wait on Accessibility, which delays the overlay.
-        guard connection.isUsable else {
-            fail(DictationFailure(message: "Sign in with ChatGPT in Settings, then start dictation.",
-                                  recovery: .signInThenRetry, overlayMessage: "Sign in to ChatGPT"))
+        guard transcriptionIsReady else {
+            if preferences.usesOpenAICompatible {
+                fail(DictationFailure(message: "Add a transcription server URL and API key in Settings → Transcription, then start dictation.",
+                                      recovery: .transcriptionSettings, overlayMessage: "Configure transcription"))
+            } else {
+                fail(DictationFailure(message: "Sign in with ChatGPT in Settings, then start dictation.",
+                                      recovery: .signInThenRetry, overlayMessage: "Sign in to ChatGPT"))
+            }
             return
         }
         if microphone == .denied || microphone == .restricted {
@@ -292,12 +332,20 @@ final class AppModel: NSObject, ObservableObject {
         startDictation()
     }
 
+    /// Keeps recording this long after release so a syllable still leaving the mouth is not clipped.
+    static let releaseTail: TimeInterval = 0.12
+
     /// Stops the recording started by the hold and sends it for transcription.
     func endModifierHold() {
         guard modifierHoldOwnsSession else { return }
         modifierHoldOwnsSession = false
         if phase == .recording {
-            stopDictation()
+            playReleaseCue()
+            let current = generation
+            DispatchQueue.main.asyncAfter(deadline: .now() + Self.releaseTail) { [weak self] in
+                guard let self, self.generation == current, self.phase == .recording else { return }
+                self.stopDictation()
+            }
         } else if phase == .preparing {
             stopModifierHoldWhenRecording = true
             playReleaseCue()
@@ -432,6 +480,11 @@ final class AppModel: NSObject, ObservableObject {
     func openMicrophoneSettings() { SystemSettingsLink.microphone.open() }
     func openAccessibilitySettings() { SystemSettingsLink.accessibility.open() }
 
+    func openTranscriptionSettings() {
+        preferredSettingsPage = .transcription
+        DistributedNotificationCenter.default().post(name: LaunchOptions.showSettingsNotification, object: nil)
+    }
+
     /// Opens the System Settings pane or sign-in path that matches the current failure.
     func recoverFromOverlay() {
         switch phase {
@@ -443,6 +496,8 @@ final class AppModel: NSObject, ObservableObject {
                 signIn()
             case .retry:
                 retry()
+            case .transcriptionSettings:
+                openTranscriptionSettings()
             case .none:
                 break
             }
@@ -659,21 +714,203 @@ final class AppModel: NSObject, ObservableObject {
         preferences.soundCues = value
     }
 
+    func setHapticCues(_ value: Bool) {
+        guard canChangeSettings else { return }
+        preferences.hapticCues = value
+    }
+
     func setLaunchAtLogin(_ enabled: Bool) {
         launchAtLoginError = nil
         do {
             if enabled { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
         } catch {
             launchAtLoginError = enabled
-                ? "Launch at login could not be turned on. Open Login Items and allow GPT Voice."
-                : "Launch at login could not be turned off. Remove GPT Voice in Login Items."
+                ? "Launch at login could not be turned on. Open Login Items and allow \(AppBrand.displayName)."
+                : "Launch at login could not be turned off. Remove \(AppBrand.displayName) in Login Items."
         }
         launchAtLogin = LaunchAtLoginStatus.current()
     }
 
     func openLoginItemsSettings() { SMAppService.openSystemSettingsLoginItems() }
 
+    // MARK: Transcription settings
+
+    func setTranscriptionProvider(_ provider: TranscriptionProvider) {
+        guard canChangeSettings else { return }
+        preferences.transcriptionProvider = provider
+        connectionTest = nil
+    }
+
+    func applyGroqPreset() {
+        guard canChangeSettings else { return }
+        preferences.transcriptionProvider = .openAICompatible
+        preferences.openAIBaseURL = "https://api.groq.com/openai/v1"
+        preferences.openAIModel = "whisper-large-v3"
+        if preferences.transcriptionLanguage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            preferences.transcriptionLanguage = "zh"
+        }
+        connectionTest = nil
+    }
+
+    func saveChatCleanupKey(_ draft: String) {
+        let key = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard canChangeSettings, !key.isEmpty else { return }
+        Task {
+            await writeSecret(key, for: KeychainSecretStore.chatAPIKeyAccount)
+            refreshSecretFlags()
+        }
+    }
+
+    func clearChatCleanupKey() {
+        guard canChangeSettings else { return }
+        Task {
+            await writeSecret(nil, for: KeychainSecretStore.chatAPIKeyAccount)
+            refreshSecretFlags()
+        }
+    }
+
+    func clearOpenAIKey() {
+        guard canChangeSettings else { return }
+        connectionTest = nil
+        Task {
+            await writeSecret(nil, for: KeychainSecretStore.apiKeyAccount)
+            refreshSecretFlags()
+        }
+    }
+
+    func testOpenAIConnection(apiKeyDraft: String) {
+        guard canChangeSettings, !isTestingConnection else { return }
+        let draft = apiKeyDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        isTestingConnection = true
+        connectionTest = nil
+        let endpoint = preferences.openAIEndpoint
+        Task {
+            if !draft.isEmpty { await writeSecret(draft, for: KeychainSecretStore.apiKeyAccount) }
+            refreshSecretFlags()
+            let read = await readSecret(KeychainSecretStore.apiKeyAccount)
+            let result: ConnectionTestResult
+            if read == .unavailable {
+                result = ConnectionTestResult(ok: false, message: DictationError.keychainUnavailable.localizedDescription)
+            } else {
+                result = await OpenAICompatibleClient().testConnection(endpoint: endpoint, apiKey: read.value)
+            }
+            guard !Task.isCancelled else { return }
+            connectionTest = result
+            isTestingConnection = false
+        }
+    }
+
     // MARK: Private
+
+    private func refreshSecretFlags() {
+        // Presence only. Reading the item here would put a Keychain sheet up while
+        // the menu-bar menu is tracking, which eats password keystrokes.
+        openAIKeyPresent = secrets.containsSecret(for: KeychainSecretStore.apiKeyAccount)
+        chatKeyPresent = secrets.containsSecret(for: KeychainSecretStore.chatAPIKeyAccount)
+    }
+
+    /// A read can wait on a SecurityAgent sheet. It runs off the main thread, one at a time, with the
+    /// hold listener paused so the sheet gets every keystroke and the overlay stays responsive.
+    private func readSecret(_ account: String) async -> SecretRead {
+        let secrets = self.secrets
+        shortcut?.setModifierHoldPaused(true)
+        defer { shortcut?.setModifierHoldPaused(false) }
+        return await withCheckedContinuation { continuation in
+            keychainQueue.async { continuation.resume(returning: secrets.readSecret(for: account)) }
+        }
+    }
+
+    private func writeSecret(_ value: String?, for account: String) async {
+        let secrets = self.secrets
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            keychainQueue.async {
+                try? secrets.setSecret(value, for: account)
+                continuation.resume()
+            }
+        }
+    }
+
+    /// Codex never needs the OpenAI-compatible key, so it never touches the keychain.
+    private func transcriptionAPIKey() async throws -> String? {
+        guard preferences.usesOpenAICompatible else { return nil }
+        switch await readSecret(KeychainSecretStore.apiKeyAccount) {
+        case .value(let key): return key
+        case .missing: return nil
+        case .unavailable: throw DictationError.keychainUnavailable
+        }
+    }
+
+    /// The dedicated chat key. The transcription key is used only when chat runs on the same host,
+    /// so a Groq key is never sent to another server.
+    private func chatCleanupAPIKey(transcriptionKey: String?, chatBaseURL: String) async -> String? {
+        if secrets.containsSecret(for: KeychainSecretStore.chatAPIKeyAccount),
+           let key = await readSecret(KeychainSecretStore.chatAPIKeyAccount).value, !key.isEmpty {
+            return key
+        }
+        guard preferences.usesOpenAICompatible,
+              ChatCleanupClient.canShareTranscriptionKey(chatBaseURL: chatBaseURL,
+                                                         transcriptionBaseURL: preferences.openAIBaseURL) else {
+            return nil
+        }
+        return transcriptionKey
+    }
+
+    /// Checked when the next dictation starts; nothing expires it in the background. Clearing or
+    /// deleting that History entry also drops it.
+    func continuationContext(now: Date) -> String? {
+        guard let continuation, history.entries.first?.text == continuation.text,
+              continuation.provider == preferences.transcriptionProvider,
+              continuation.language == preferences.transcriptionLanguage,
+              now.timeIntervalSince(continuation.at) <= Self.continuationWindow else { return nil }
+        return continuation.text
+    }
+
+    /// Injected transcribers are test doubles: they reach a chat server only through an injected session.
+    private var chatSession: URLSession? {
+        injectedChatSession ?? (transcribeAudio == nil ? HTTPClient.shared : nil)
+    }
+
+    /// Returns the text replacements saw (for rule hit counts) and the text to deliver.
+    private func performTranscription(_ url: URL) async throws -> (raw: String, text: String) {
+        let apiKey = try await transcriptionAPIKey()
+        let prompt = lexicon.transcriptionPrompt(language: preferences.transcriptionLanguage,
+                                                 script: preferences.chineseScript,
+                                                 context: continuationContext(now: Date()))
+        let raw: String
+        if let transcribeAudio {
+            raw = try await transcribeAudio(url)
+        } else {
+            raw = try await TranscriptionService.transcribe(
+                file: url,
+                provider: preferences.transcriptionProvider,
+                language: preferences.openAIEndpoint.languageHint,
+                prompt: prompt,
+                openAI: preferences.openAIEndpoint,
+                apiKey: apiKey
+            )
+        }
+        var chat: (model: String, baseURL: String, apiKey: String?)?
+        // Missing URL, model, or key skips correction silently; the local result is delivered.
+        if preferences.chatCleanup, preferences.chatCleanupIsConfigured, chatSession != nil {
+            let base = preferences.chatCleanupEndpoint
+            let key = await chatCleanupAPIKey(transcriptionKey: apiKey, chatBaseURL: base)
+            if key != nil || OpenAICompatibleURL.isLocalHost(base) {
+                chat = (preferences.chatCleanupModelID, base, key)
+            }
+        }
+        let processed = await TranscriptPostProcessor.applyReporting(
+            raw,
+            deterministicCleanup: preferences.deterministicCleanup,
+            extraFilterWords: preferences.extraFilterWords,
+            replacements: lexicon.replacementList,
+            chineseScript: preferences.effectiveChineseScript,
+            prompt: prompt,
+            chat: chat,
+            chatContext: lexicon.chatContext(),
+            session: chatSession ?? HTTPClient.shared
+        )
+        return (processed.beforeReplacements, processed.text)
+    }
 
     private func captureEnded(url: URL) {
         stopMeter()
@@ -696,9 +933,15 @@ final class AppModel: NSObject, ObservableObject {
         activeAudio = url
         phase = .transcribing
         operation = Task {
+            let raw: String
             let text: String
             do {
-                text = try await transcribeAudio(url)
+                let result = try await performTranscription(url)
+                raw = result.raw
+                text = result.text
+                if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    throw DictationError.emptyTranscript
+                }
             } catch {
                 guard current == generation, !Task.isCancelled else { return }
                 activeAudio = nil
@@ -722,6 +965,10 @@ final class AppModel: NSObject, ObservableObject {
             phase = .pasting
             let outcome = await paste.deliver(text: text, automaticPaste: preferences.automaticPaste)
             await history.append(HistoryEntry(text: text, createdAt: completedAt, delivery: HistoryDelivery(outcome)))
+            if outcome.delivered {
+                lexicon.recordUsage(raw: raw, delivered: text)
+                continuation = (text, completedAt, preferences.transcriptionProvider, preferences.transcriptionLanguage)
+            }
             operation = nil
             if current == generation { phase = .finished(outcome) }
         }
@@ -744,6 +991,7 @@ final class AppModel: NSObject, ObservableObject {
 
     private func cue(_ sound: SoundCue) {
         if preferences.soundCues { sound.play() }
+        if preferences.hapticCues { sound.haptic() }
     }
 
     private func playStartCue() {

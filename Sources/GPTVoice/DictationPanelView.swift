@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// Keeps one surface while the window resizes and the content cross-fades.
@@ -20,8 +21,9 @@ struct DictationPanelView: View {
             .scaleEffect(surfaceScale)
             .animation(AppMotion.overlay(reduceMotion, duration: scaleDuration, reduced: timing.reducedFade),
                        value: surfaceScale)
-            .modifier(OverlaySurface(shape: RoundedRectangle(cornerRadius: presentation.state.isHelp ? 14 : 20,
-                                                              style: .continuous)))
+            .modifier(OverlaySurface(cornerRadius: presentation.state.isHelp
+                                        ? OverlayMetrics.helpCornerRadius : OverlayMetrics.cornerRadius,
+                                     blending: .behindWindow))
         }
         .ignoresSafeArea()
         .accessibilityElement(children: .contain)
@@ -43,13 +45,9 @@ struct DictationPanelView: View {
             OverlayHelpContent(notice: notice, dismiss: actions.dismiss,
                                action: notice.actionTitle == nil ? nil : actions.recover)
         } else {
-            HStack(spacing: 10) {
-                OverlayCapsuleContent(state: presentation.state, actions: actions)
-            }
-            .padding(.leading, 14)
-            .padding(.trailing, 8)
-            .frame(height: 40)
-            .fixedSize(horizontal: true, vertical: false)
+            OverlayCapsuleContent(state: presentation.state, actions: actions)
+                .frame(height: OverlayMetrics.height)
+                .fixedSize(horizontal: true, vertical: false)
         }
     }
 }

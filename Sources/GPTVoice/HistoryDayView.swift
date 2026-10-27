@@ -5,13 +5,14 @@ struct HistoryDayView: View {
     let day: Date
     let entries: [HistoryEntry]
     let canCopy: Bool
+    let lexicon: LexiconLibrary
     let copy: (HistoryEntry) -> Bool
     let delete: (HistoryEntry) -> Void
 
     var body: some View {
         SettingsGroup(title: title) {
             ForEach(entries) { entry in
-                HistoryEntryView(entry: entry, canCopy: canCopy,
+                HistoryEntryView(entry: entry, canCopy: canCopy, lexicon: lexicon,
                                  copy: { copy(entry) }, delete: { delete(entry) })
                 if entry.id != entries.last?.id { RowDivider() }
             }

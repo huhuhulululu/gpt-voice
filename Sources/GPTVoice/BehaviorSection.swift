@@ -34,7 +34,7 @@ struct BehaviorSection: View {
             }
             if preferences.automaticPaste, !model.accessibilityTrusted {
                 StatusRow(tone: .neutral, symbol: "circle.dashed", title: "Accessibility is off",
-                          detail: "Allow it so GPT Voice can paste for you. Or leave paste off and press ⌘V.") {
+                          detail: "Allow it so \(AppBrand.displayName) can paste for you. Or leave paste off and press ⌘V.") {
                     Button("Allow") { model.requestAccessibility() }
                         .buttonStyle(AppButtonStyle(kind: .secondary, small: true))
                         .accessibilityLabel("Allow Accessibility")
@@ -44,9 +44,15 @@ struct BehaviorSection: View {
                 }
             }
             SettingsRow(title: "Sound cues",
-                        detail: "A short click when recording starts and when you release.") {
+                        detail: "Quiet clicks on start and release. Off until you turn them on.") {
                 AppToggle(label: "Sound cues",
                           isOn: Binding(get: { preferences.soundCues }, set: { model.setSoundCues($0) }))
+                    .disabled(!model.canChangeSettings)
+            }
+            SettingsRow(title: "Haptic taps",
+                        detail: "A light trackpad tap on start, release, and failure. Off until you turn them on.") {
+                AppToggle(label: "Haptic taps",
+                          isOn: Binding(get: { preferences.hapticCues }, set: { model.setHapticCues($0) }))
                     .disabled(!model.canChangeSettings)
             }
             SettingsRow(title: "Open at login", showsDivider: showsLoginIssue) {

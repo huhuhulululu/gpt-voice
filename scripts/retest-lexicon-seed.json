@@ -1,0 +1,16 @@
+{
+  "terms": [
+    "锄禾日当午",
+    "采菊东篱下",
+    "悠然见南山"
+  ],
+  "corrections": [
+    { "heard": "出禾日当午", "correct": "锄禾日当午" },
+    { "heard": "出盒日当午", "correct": "锄禾日当午" },
+    { "heard": "出河日当午", "correct": "锄禾日当午" },
+    { "heard": "出禾", "correct": "锄禾" },
+    { "heard": "出盒", "correct": "锄禾" },
+    { "heard": "出河", "correct": "锄禾" },
+    { "heard": "彩鞠动篱下", "correct": "采菊东篱下" }
+  ]
+}

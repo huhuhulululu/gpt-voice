@@ -33,9 +33,11 @@ struct PracticeConsole: View {
                     .disabled(!model.phase.canCancel)
             })
         }
-        if !model.connection.isUsable {
+        if !model.transcriptionIsReady {
             return AnyView(StatusRow(tone: .attention, symbol: "exclamationmark.circle.fill",
-                                     title: "Sign in to ChatGPT first") {
+                                     title: model.preferences.usesOpenAICompatible
+                                        ? "Configure transcription first"
+                                        : "Sign in to ChatGPT first") {
                 Button("Go to Connect") { goTo(.welcome) }
                     .buttonStyle(AppButtonStyle(kind: .secondary, small: true))
             })
@@ -54,8 +56,8 @@ struct PracticeConsole: View {
         switch sessionPhase {
         case .preparing, .recording:
             HStack(spacing: 10) {
-                RecordingDot().accessibilityHidden(true)
-                Text("Listening").font(AppType.rowTitle)
+                RecordingDot(level: model.level).accessibilityHidden(true)
+                Text("Listening…").font(AppType.rowTitle)
                 Text(DictationOverlayState.format(model.elapsed))
                     .font(AppType.timer)
                     .monospacedDigit()
@@ -69,7 +71,7 @@ struct PracticeConsole: View {
             }
             .padding(.vertical, 12)
         case .transcribing:
-            StatusRow(tone: .working, symbol: "", title: "Transcribing") { cancelButton }
+            StatusRow(tone: .working, symbol: "", title: "Transcribing…") { cancelButton }
         case .failed(let failure):
             StatusRow(tone: .problem, symbol: "exclamationmark.triangle.fill",
                       title: "Practice did not finish", detail: failure.message) {
@@ -83,6 +85,9 @@ struct PracticeConsole: View {
                         .buttonStyle(AppButtonStyle(kind: .secondary, small: true))
                 case .signInThenRetry:
                     Button("Go to Connect") { goTo(.welcome) }
+                        .buttonStyle(AppButtonStyle(kind: .secondary, small: true))
+                case .transcriptionSettings:
+                    Button("Transcription settings") { model.openTranscriptionSettings() }
                         .buttonStyle(AppButtonStyle(kind: .secondary, small: true))
                 case .retry, .none:
                     EmptyView()

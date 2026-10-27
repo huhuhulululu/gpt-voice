@@ -55,7 +55,7 @@ struct ShortcutPanel: View {
             }
 
             InfoDisclosure(label: "Shortcut not responding?",
-                           text: "Another app may use the same keys. Check ChatGPT and System Settings → Keyboard → Keyboard Shortcuts, or choose another shortcut. The recorder cannot capture keys macOS keeps, such as Command–Space — use that preset instead. Hold a key combination to record, then release to transcribe. A short tap still starts; press again to stop. Hold Left Option, or another Option, Control, or Shift key, to record; release pastes the transcript. Using it with another key keeps it a modifier. A modifier-only shortcut needs Input Monitoring in System Settings → Privacy & Security → Input Monitoring. Quit and reopen GPT Voice if a new grant does not take effect.")
+                           text: "Another app may use the same keys. Check ChatGPT and System Settings → Keyboard → Keyboard Shortcuts, or choose another shortcut. The recorder cannot capture keys macOS keeps, such as Command–Space — use that preset instead. Hold a key combination to record, then release to transcribe. A short tap still starts; press again to stop. Hold Left Option, or another Option, Control, or Shift key, to record; release pastes the transcript. Using it with another key keeps it a modifier. A modifier-only shortcut needs Input Monitoring in System Settings → Privacy & Security → Input Monitoring. Quit and reopen \(AppBrand.displayName) if a new grant does not take effect.")
         }
         // Never leave a listening test behind when the panel goes away.
         .onDisappear { model.endShortcutTest() }

@@ -46,7 +46,7 @@ actor HistoryRepository {
             try save()
             return HistorySnapshot(entries: entries, errorMessage: nil)
         } catch {
-            return HistorySnapshot(entries: entries, errorMessage: "Changes are not saved yet. Keep GPT Voice open and try again.")
+            return HistorySnapshot(entries: entries, errorMessage: "Changes are not saved yet. Keep \(AppBrand.displayName) open and try again.")
         }
     }
 

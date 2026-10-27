@@ -21,7 +21,7 @@ enum LaunchAtLoginStatus: Equatable {
     var detail: String? {
         switch self {
         case .enabled, .disabled: return nil
-        case .requiresApproval: return "Allow GPT Voice in Login Items to finish."
+        case .requiresApproval: return "Allow \(AppBrand.displayName) in Login Items to finish."
         }
     }
 }

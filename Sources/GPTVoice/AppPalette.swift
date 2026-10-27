@@ -39,6 +39,40 @@ enum AppPalette {
         }
     }
 
+    /// One fixed sRGB color, the same in light and dark.
+    static func color(_ hex: UInt32) -> Color {
+        Color(nsColor: rgb(hex))
+    }
+
+    static func nsColor(_ hex: UInt32) -> NSColor {
+        rgb(hex)
+    }
+
+    /// Mixes two sRGB hex colors channel by channel. `amount` 0 is `from`, 1 is `to`.
+    static func mix(_ from: UInt32, _ to: UInt32, _ amount: Double) -> UInt32 {
+        func channel(_ shift: UInt32) -> UInt32 {
+            let a = Double((from >> shift) & 0xFF)
+            let b = Double((to >> shift) & 0xFF)
+            return UInt32((a + (b - a) * amount).rounded()) << shift
+        }
+        return channel(16) | channel(8) | channel(0)
+    }
+
+    /// The color at `position` (0...1) along evenly spaced stops.
+    static func sample(_ stops: [UInt32], at position: Double) -> UInt32 {
+        guard stops.count > 1 else { return stops.first ?? 0 }
+        let scaled = max(0, min(1, position)) * Double(stops.count - 1)
+        let index = min(Int(scaled), stops.count - 2)
+        return mix(stops[index], stops[index + 1], scaled - Double(index))
+    }
+
+    /// A translucent color that differs between light and dark.
+    static func dynamic(light: UInt32, lightAlpha: CGFloat, dark: UInt32, darkAlpha: CGFloat) -> Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            isDark(appearance) ? rgb(dark).withAlphaComponent(darkAlpha) : rgb(light).withAlphaComponent(lightAlpha)
+        })
+    }
+
     private static func rgb(_ hex: UInt32) -> NSColor {
         NSColor(srgbRed: CGFloat((hex >> 16) & 0xFF) / 255,
                 green: CGFloat((hex >> 8) & 0xFF) / 255,

@@ -5,11 +5,7 @@ public final class TranscriptionClient {
     private let session: URLSession
 
     public init() {
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.timeoutIntervalForRequest = 90
-        configuration.timeoutIntervalForResource = 110
-        configuration.httpShouldSetCookies = false
-        session = URLSession(configuration: configuration, delegate: NoRedirectDelegate(), delegateQueue: nil)
+        session = HTTPClient.shared
     }
 
     init(session: URLSession) { self.session = session }
@@ -21,7 +17,7 @@ public final class TranscriptionClient {
         let attributes = try FileManager.default.attributesOfItem(atPath: file.path)
         guard let size = attributes[.size] as? NSNumber, size.intValue > 0 else { throw DictationError.invalidAudio }
         guard size.intValue < 20_000_000 else { throw DictationError.audioTooLarge }
-        let audio = try Data(contentsOf: file)
+        let audio = try AudioPreparation.prepareForUpload(Data(contentsOf: file), fileExtension: file.pathExtension)
         let multipart = MultipartAudio(audio: audio, filename: "dictation.\(file.pathExtension.lowercased())",
                                        contentType: contentType, language: language)
         let current = try CodexCredentials.load()
@@ -40,7 +36,7 @@ public final class TranscriptionClient {
         request.setValue("Bearer \(credentials.accessToken)", forHTTPHeaderField: "Authorization")
         request.setValue(credentials.accountID, forHTTPHeaderField: "ChatGPT-Account-Id")
         request.setValue("multipart/form-data; boundary=\(multipart.boundary)", forHTTPHeaderField: "Content-Type")
-        request.setValue("GPTVoice", forHTTPHeaderField: "User-Agent")
+        request.setValue(HTTPClient.userAgent, forHTTPHeaderField: "User-Agent")
         request.setValue("codex_dictation", forHTTPHeaderField: "originator")
         request.httpBody = multipart.body
         let (data, response) = try await session.data(for: request)

@@ -12,12 +12,16 @@ for option in "$@"; do
     *) echo "Usage: $0 [--install] [--universal]" >&2; exit 2 ;;
   esac
 done
+# The bundle executable is Goice so Activity Monitor and `ps` show the product name. The SPM product
+# stays GPTVoice, and the bundle id and signing identifier stay com.vishesh.codex-dictation: the
+# Keychain item and TCC grants are keyed on those, not on the file name.
+executable_name=Goice
 app_version=$(cat VERSION)
 build_number=$(cat BUILD_NUMBER)
 [[ "$app_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid VERSION" >&2; exit 1; }
 [[ "$build_number" =~ ^[0-9]+$ ]] || { echo "Invalid BUILD_NUMBER" >&2; exit 1; }
 check_launch() {
-  python3 - "$1/Contents/MacOS/GPTVoice" <<'PYTHON'
+  python3 - "$1/Contents/MacOS/$executable_name" <<'PYTHON'
 import json, subprocess, sys
 try:
     result = subprocess.run([sys.argv[1], "--diagnose"], capture_output=True, timeout=8, check=True)
@@ -37,15 +41,15 @@ else
 fi
 build_staging_dir=$(mktemp -d "$project_dir/.build/gpt-voice-bundle.XXXXXX")
 trap 'rm -rf "$build_staging_dir"' EXIT
-app_dir="$build_staging_dir/GPT Voice.app"
+app_dir="$build_staging_dir/Goice.app"
 mkdir -p "$app_dir/Contents/MacOS" "$app_dir/Contents/Resources"
 if $universal; then
-  lipo -create "$binary_dir/GPTVoice" "$intel_binary_dir/GPTVoice" -output "$app_dir/Contents/MacOS/GPTVoice"
-  architectures=$(lipo -archs "$app_dir/Contents/MacOS/GPTVoice")
+  lipo -create "$binary_dir/GPTVoice" "$intel_binary_dir/GPTVoice" -output "$app_dir/Contents/MacOS/$executable_name"
+  architectures=$(lipo -archs "$app_dir/Contents/MacOS/$executable_name")
   [[ " $architectures " == *" arm64 "* && " $architectures " == *" x86_64 "* ]] \
     || { echo "The universal app is missing an architecture." >&2; exit 1; }
 else
-  cp "$binary_dir/GPTVoice" "$app_dir/Contents/MacOS/GPTVoice"
+  cp "$binary_dir/GPTVoice" "$app_dir/Contents/MacOS/$executable_name"
 fi
 resource_bundle="$binary_dir/GPTVoice_GPTVoice.bundle"
 if [[ -d "$resource_bundle" ]]; then
@@ -53,24 +57,18 @@ if [[ -d "$resource_bundle" ]]; then
   ditto "$resource_bundle" "$app_dir/Contents/Resources/GPTVoice_GPTVoice.bundle"
 fi
 icon_dir="$project_dir/.build/AppIcon.iconset"
-mkdir -p "$icon_dir"
-swift scripts/generate-icon.swift "$icon_dir/icon_512x512@2x.png" 1024
-for icon_size in 16 32 128 256 512; do
-  sips -z "$icon_size" "$icon_size" "$icon_dir/icon_512x512@2x.png" --out "$icon_dir/icon_${icon_size}x${icon_size}.png" >/dev/null
-  retina_size=$((icon_size * 2))
-  if [[ "$retina_size" != "1024" ]]; then
-    sips -z "$retina_size" "$retina_size" "$icon_dir/icon_512x512@2x.png" --out "$icon_dir/icon_${icon_size}x${icon_size}@2x.png" >/dev/null
-  fi
-done
+rm -rf "$icon_dir"
+# Each size is drawn at its own pixel size; 16 and 32 px use the three-bar mark.
+swift scripts/generate-icon.swift --iconset "$icon_dir"
 iconutil -c icns "$icon_dir" -o "$app_dir/Contents/Resources/AppIcon.icns"
 cat > "$app_dir/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-<key>CFBundleExecutable</key><string>GPTVoice</string>
+<key>CFBundleExecutable</key><string>Goice</string>
 <key>CFBundleIdentifier</key><string>com.vishesh.codex-dictation</string>
-<key>CFBundleName</key><string>GPT Voice</string>
-<key>CFBundleDisplayName</key><string>GPT Voice</string>
+<key>CFBundleName</key><string>Goice</string>
+<key>CFBundleDisplayName</key><string>Goice</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>0.0.0</string>
 <key>CFBundleVersion</key><string>0</string>
@@ -79,7 +77,7 @@ cat > "$app_dir/Contents/Info.plist" <<'PLIST'
 <key>LSUIElement</key><true/>
 <key>NSHighResolutionCapable</key><true/>
 <key>NSPrincipalClass</key><string>NSApplication</string>
-<key>NSMicrophoneUsageDescription</key><string>Record your voice when you start dictation. Audio is sent to ChatGPT to convert speech to text.</string>
+<key>NSMicrophoneUsageDescription</key><string>Record your voice when you start dictation. Audio is sent to your chosen transcription service to convert speech to text.</string>
 <key>NSInputMonitoringUsageDescription</key><string>Detect when you hold the dictation shortcut, including Option by itself. Typed characters are not recorded or stored.</string>
 </dict></plist>
 PLIST
@@ -103,45 +101,47 @@ sign_app() {
 sign_app "$app_dir"
 codesign --verify --strict "$app_dir"
 check_launch "$app_dir"
-release_app="$project_dir/dist/GPT Voice.app"
+release_app="$project_dir/dist/Goice.app"
 mkdir -p "$project_dir/dist"
 if [[ -e "$release_app" ]]; then
-  mv "$release_app" "$build_staging_dir/Previous GPT Voice.app"
+  mv "$release_app" "$build_staging_dir/Previous Goice.app"
 fi
 mv "$app_dir" "$release_app"
 app_dir="$release_app"
 if $install_app; then
-  destination="$HOME/Applications/GPT Voice.app"
+  destination="$HOME/Applications/Goice.app"
   if [[ -e "$destination" ]]; then
     previous_id=$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$destination/Contents/Info.plist")
     [[ "$previous_id" == "com.vishesh.codex-dictation" ]] || { echo "Another app uses this destination." >&2; exit 1; }
   fi
   mkdir -p "$HOME/Applications"
   install_staging_dir=$(mktemp -d "$project_dir/.build/gpt-voice-install.XXXXXX")
-  ditto "$app_dir" "$install_staging_dir/GPT Voice.app"
-  sign_app "$install_staging_dir/GPT Voice.app"
-  check_launch "$install_staging_dir/GPT Voice.app"
+  ditto "$app_dir" "$install_staging_dir/Goice.app"
+  sign_app "$install_staging_dir/Goice.app"
+  check_launch "$install_staging_dir/Goice.app"
   if [[ -e "$destination" ]]; then
     mkdir -p "$project_dir/.build/installed-app-backups"
     ditto -c -k --sequesterRsrc --keepParent "$destination" \
-      "$project_dir/.build/installed-app-backups/GPT-Voice-$(date +%Y%m%dT%H%M%S)-$$.app.zip"
-    mv "$destination" "$build_staging_dir/Previous Installed GPT Voice.app"
+      "$project_dir/.build/installed-app-backups/Goice-$(date +%Y%m%dT%H%M%S)-$$.app.zip"
+    mv "$destination" "$build_staging_dir/Previous Installed Goice.app"
   fi
-  mv "$install_staging_dir/GPT Voice.app" "$destination"
+  mv "$install_staging_dir/Goice.app" "$destination"
   rmdir "$install_staging_dir"
   codesign --verify --strict "$destination"
-  legacy_destination="$HOME/Applications/Codex Dictation.app"
-  if [[ -d "$legacy_destination" ]]; then
-    legacy_id=$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$legacy_destination/Contents/Info.plist")
-    if [[ "$legacy_id" == "com.vishesh.codex-dictation" ]]; then
-      backup_dir="$project_dir/.build/installed-app-backups"
-      mkdir -p "$backup_dir"
-      backup_path="$backup_dir/Codex-Dictation-$(date +%Y%m%dT%H%M%S)-$$.app.zip"
-      ditto -c -k --sequesterRsrc --keepParent "$legacy_destination" "$backup_path"
-      rm -rf "$legacy_destination"
-      echo "Previous app saved: $backup_path"
+  for legacy_name in "GPT Voice.app" "Codex Dictation.app"; do
+    legacy_destination="$HOME/Applications/$legacy_name"
+    if [[ -d "$legacy_destination" ]]; then
+      legacy_id=$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$legacy_destination/Contents/Info.plist")
+      if [[ "$legacy_id" == "com.vishesh.codex-dictation" ]]; then
+        backup_dir="$project_dir/.build/installed-app-backups"
+        mkdir -p "$backup_dir"
+        backup_path="$backup_dir/${legacy_name%.app}-$(date +%Y%m%dT%H%M%S)-$$.app.zip"
+        ditto -c -k --sequesterRsrc --keepParent "$legacy_destination" "$backup_path"
+        rm -rf "$legacy_destination"
+        echo "Previous app saved: $backup_path"
+      fi
     fi
-  fi
+  done
   echo "Installed: $destination"
 else
   echo "Built: $app_dir"

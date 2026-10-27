@@ -1,56 +1,78 @@
 import SwiftUI
 
-/// Shared content for the live, resizing shell and the static preview.
+/// Content and padding for each bar state, shared by the live resizing panel and the measuring and preview views,
+/// so both produce the same size. Listening stays wider than working, so release always resizes visibly.
 struct OverlayCapsuleContent: View {
     let state: DictationOverlayState
     let actions: DictationOverlayActions
+    /// A fixed waveform for the Appearance preview. nil follows the live level.
+    var sampleWaveform: [CGFloat]? = nil
 
     @ViewBuilder var body: some View {
         switch state {
         case .recording(let elapsed, let level):
-            RecordingDot()
-            LevelMeterView(level: level).frame(width: 36, height: 18)
-            Text(DictationOverlayState.format(elapsed))
-                .font(AppType.timer)
-                .monospacedDigit()
-                .foregroundStyle(.secondary)
-                .accessibilityLabel("Elapsed \(DictationOverlayState.format(elapsed))")
-            OverlayIconButton(symbol: "xmark", label: "Cancel dictation", action: actions.cancel)
-            OverlayIconButton(symbol: "stop.fill", label: "Stop and transcribe", prominent: true, action: actions.stop)
-        case .working(let label, let cancellable):
-            // Secondary-label ring: visible on light and dark surfaces, unlike the small system spinner.
-            ActivityIndicator(size: 13)
-                .frame(width: 16, height: 16)
-            Text(label)
-                .font(AppType.control)
-                .lineLimit(1)
-                .frame(minWidth: 96, alignment: .leading)
-            if cancellable {
+            HStack(spacing: 0) {
+                OverlayLiveDot(level: level, animates: sampleWaveform == nil)
+                    .padding(.trailing, 7)
+                OverlayWaveform(level: level, elapsed: elapsed, sample: sampleWaveform)
+                    .padding(.trailing, 10)
+                Text(DictationOverlayState.format(elapsed))
+                    .font(AppType.timer)
+                    .monospacedDigit()
+                    .foregroundStyle(OverlayInk.secondary)
+                    .fixedSize()
+                    .accessibilityLabel("Elapsed \(DictationOverlayState.format(elapsed))")
+                    .padding(.trailing, 10)
                 OverlayIconButton(symbol: "xmark", label: "Cancel dictation", action: actions.cancel)
-            } else {
-                Color.clear.frame(width: 6, height: 24)
+                    .padding(.trailing, 5)
+                OverlayIconButton(symbol: "stop.fill", label: "Stop and transcribe", prominent: true, action: actions.stop)
             }
+            .padding(.leading, 12)
+            .padding(.trailing, 5)
+        case .working(let label, let cancellable):
+            HStack(spacing: 0) {
+                OverlayFlowDots()
+                    .padding(.trailing, 10)
+                Text(label)
+                    .font(AppType.overlayLabel)
+                    .foregroundStyle(OverlayInk.primary)
+                    .lineLimit(1)
+                    .frame(minWidth: 92, alignment: .leading)
+                    .padding(.trailing, 10)
+                // Transcribing and Pasting share one measured size, so the cancel slot stays when it cannot cancel.
+                if cancellable {
+                    OverlayIconButton(symbol: "xmark", label: "Cancel dictation", action: actions.cancel)
+                } else {
+                    Color.clear.frame(width: 24, height: 24)
+                }
+            }
+            .padding(.leading, 14)
+            .padding(.trailing, 7)
         case .success(let label):
-            Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(AppPalette.success)
-                .accessibilityHidden(true)
-            Text(label)
-                .font(AppType.control)
-                .lineLimit(1)
-                .padding(.trailing, 8)
-        case .message(let label, let kind, let actionTitle):
-            Image(systemName: kind == .noSpeech ? "waveform.slash" :
-                    kind == .warning ? "exclamationmark.circle" : "doc.on.clipboard")
-                .foregroundStyle(.secondary)
-                .accessibilityHidden(true)
-            Text(label)
-                .font(AppType.control)
-                .lineLimit(1)
-                .padding(.trailing, actionTitle == nil ? 8 : 0)
-            if let actionTitle {
-                OverlayIconButton(symbol: actionTitle == "Retry" ? "arrow.clockwise" : "arrow.up.forward.app",
-                                  label: actionTitle, prominent: true, action: actions.recover)
+            HStack(spacing: 8) {
+                OverlaySuccessMark()
+                Text(label)
+                    .font(AppType.overlayLabel)
+                    .foregroundStyle(OverlayInk.primary)
+                    .lineLimit(1)
             }
+            .padding(.leading, 11)
+            .padding(.trailing, 16)
+        case .message(let label, let kind, let actionTitle):
+            HStack(spacing: 0) {
+                OverlayMessageIcon(kind: kind)
+                    .padding(.trailing, 8)
+                Text(label)
+                    .font(AppType.overlayLabel)
+                    .foregroundStyle(OverlayInk.primary)
+                    .lineLimit(1)
+                if let actionTitle {
+                    OverlayActionPill(title: actionTitle, action: actions.recover)
+                        .padding(.leading, 12)
+                }
+            }
+            .padding(.leading, 12)
+            .padding(.trailing, actionTitle == nil ? 16 : 6)
         case .hidden, .notice:
             EmptyView()
         }

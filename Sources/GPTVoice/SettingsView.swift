@@ -49,7 +49,11 @@ struct SettingsView: View {
         }
         .animation(AppMotion.reveal(reduceMotion), value: page)
         .frame(minWidth: 720, idealWidth: 820, minHeight: 540, idealHeight: 600)
-        .onAppear { model.refreshStatus() }
+        .onAppear {
+            model.refreshStatus()
+            applyPreferredPage()
+        }
+        .onChange(of: model.preferredSettingsPage) { _ in applyPreferredPage() }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             model.refreshStatus()
         }
@@ -58,11 +62,18 @@ struct SettingsView: View {
         }
     }
 
+    private func applyPreferredPage() {
+        guard let preferred = model.preferredSettingsPage else { return }
+        page = preferred
+        model.preferredSettingsPage = nil
+    }
+
     @ViewBuilder private var content: some View {
         switch page {
         case .home: HomePage(model: model) { page = $0 }
         case .history: HistoryPage(model: model)
         case .shortcuts: ShortcutPanel(model: model)
+        case .transcription: TranscriptionPage(model: model)
         case .appearance: AppearanceSection(preferences: preferences)
         case .preferences: BehaviorSection(model: model)
         case .privacy: PrivacyPage(model: model)
