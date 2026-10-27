@@ -7,6 +7,10 @@ public enum HTTPClient {
     /// token, and an empty UA, so the sparse token is kept.
     public static let userAgent = "GPTVoice"
 
+    /// One session for the app lifetime. A session per request was never invalidated, so each dictation
+    /// leaked one and paid a fresh TLS handshake; this one keeps the connection warm between takes.
+    public static let shared: URLSession = makeSession()
+
     /// Ephemeral so audio and keys never hit the URL cache. System HTTP proxies (Clash) stay inherited.
     /// `waitsForConnectivity` stays off so a hold does not sit on “waiting for network.”
     public static func makeSession(timeout: TimeInterval = 90) -> URLSession {

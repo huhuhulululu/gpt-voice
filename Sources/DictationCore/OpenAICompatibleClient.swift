@@ -14,14 +14,10 @@ public final class OpenAICompatibleClient {
     private let session: URLSession
 
     public init() {
-        self.session = Self.makeSession()
+        self.session = HTTPClient.shared
     }
 
     init(session: URLSession) { self.session = session }
-
-    public static func makeSession() -> URLSession {
-        HTTPClient.makeSession()
-    }
 
     public func transcribe(file: URL, endpoint: OpenAICompatibleEndpoint, apiKey: String?,
                            prompt: String? = nil) async throws -> String {
@@ -31,7 +27,7 @@ public final class OpenAICompatibleClient {
         let attributes = try FileManager.default.attributesOfItem(atPath: file.path)
         guard let size = attributes[.size] as? NSNumber, size.intValue > 0 else { throw DictationError.invalidAudio }
         guard size.intValue < 20_000_000 else { throw DictationError.audioTooLarge }
-        let audio = try Data(contentsOf: file)
+        let audio = try AudioPreparation.prepareForUpload(Data(contentsOf: file), fileExtension: file.pathExtension)
         var extra: [String: String] = ["model": endpoint.model]
         if let prompt, !prompt.isEmpty { extra["prompt"] = prompt }
         let multipart = MultipartAudio(audio: audio, filename: "dictation.\(file.pathExtension.lowercased())",

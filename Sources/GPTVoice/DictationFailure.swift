@@ -70,6 +70,12 @@ struct DictationFailure: Equatable {
         case DictationError.emptyTranscript:
             self.init(message: "No speech found. Try another recording.", recovery: .none,
                       overlayMessage: "No speech found", kind: .noSpeech)
+        case DictationError.recordingTooShort:
+            self.init(message: "That was too short to transcribe. Hold the shortcut while you speak.", recovery: .none,
+                      overlayMessage: "Hold a little longer", kind: .noSpeech)
+        case DictationError.keychainUnavailable:
+            self.init(message: "macOS did not release the API key from the Keychain. Select Retry, then choose Always Allow.",
+                      recovery: .retry, overlayMessage: "Allow Keychain access")
         case DictationError.service(429):
             self.init(message: "The transcription server reached a request limit. Wait a moment, then select Retry.",
                       recovery: .retry, overlayMessage: "Try again in a moment")

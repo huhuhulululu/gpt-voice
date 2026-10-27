@@ -59,6 +59,7 @@ final class AppModel: NSObject, ObservableObject {
     /// Chosen modifier hold waiting for Input Monitoring. Applied once the grant appears.
     private var pendingModifierHold: HotkeySpec?
     private var lastInputMonitoringGrant = InputMonitoringPermission.isGranted
+    private let keychainQueue = DispatchQueue(label: "com.vishesh.codex-dictation.keychain", qos: .userInitiated)
 
     static let installCodexURL = URL(string: "https://developers.openai.com/codex/cli/")!
 
@@ -313,12 +314,20 @@ final class AppModel: NSObject, ObservableObject {
         startDictation()
     }
 
+    /// Keeps recording this long after release so a syllable still leaving the mouth is not clipped.
+    static let releaseTail: TimeInterval = 0.12
+
     /// Stops the recording started by the hold and sends it for transcription.
     func endModifierHold() {
         guard modifierHoldOwnsSession else { return }
         modifierHoldOwnsSession = false
         if phase == .recording {
-            stopDictation()
+            playReleaseCue()
+            let current = generation
+            DispatchQueue.main.asyncAfter(deadline: .now() + Self.releaseTail) { [weak self] in
+                guard let self, self.generation == current, self.phase == .recording else { return }
+                self.stopDictation()
+            }
         } else if phase == .preparing {
             stopModifierHoldWhenRecording = true
             playReleaseCue()
@@ -714,13 +723,6 @@ final class AppModel: NSObject, ObservableObject {
         connectionTest = nil
     }
 
-    func saveOpenAIKey(_ value: String) {
-        guard canChangeSettings else { return }
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        try? secrets.setSecret(trimmed.isEmpty ? nil : trimmed, for: KeychainSecretStore.apiKeyAccount)
-        refreshSecretFlags()
-    }
-
     func applyGroqPreset() {
         guard canChangeSettings else { return }
         preferences.transcriptionProvider = .openAICompatible
@@ -734,21 +736,29 @@ final class AppModel: NSObject, ObservableObject {
 
     func clearOpenAIKey() {
         guard canChangeSettings else { return }
-        try? secrets.setSecret(nil, for: KeychainSecretStore.apiKeyAccount)
-        refreshSecretFlags()
         connectionTest = nil
+        Task {
+            await writeSecret(nil, for: KeychainSecretStore.apiKeyAccount)
+            refreshSecretFlags()
+        }
     }
 
     func testOpenAIConnection(apiKeyDraft: String) {
         guard canChangeSettings, !isTestingConnection else { return }
         let draft = apiKeyDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !draft.isEmpty { saveOpenAIKey(draft) }
         isTestingConnection = true
         connectionTest = nil
         let endpoint = preferences.openAIEndpoint
-        let key = lockedSecret(for: KeychainSecretStore.apiKeyAccount)
         Task {
-            let result = await OpenAICompatibleClient().testConnection(endpoint: endpoint, apiKey: key)
+            if !draft.isEmpty { await writeSecret(draft, for: KeychainSecretStore.apiKeyAccount) }
+            refreshSecretFlags()
+            let read = await readSecret(KeychainSecretStore.apiKeyAccount)
+            let result: ConnectionTestResult
+            if read == .unavailable {
+                result = ConnectionTestResult(ok: false, message: DictationError.keychainUnavailable.localizedDescription)
+            } else {
+                result = await OpenAICompatibleClient().testConnection(endpoint: endpoint, apiKey: read.value)
+            }
             guard !Task.isCancelled else { return }
             connectionTest = result
             isTestingConnection = false
@@ -763,14 +773,47 @@ final class AppModel: NSObject, ObservableObject {
         openAIKeyPresent = secrets.containsSecret(for: KeychainSecretStore.apiKeyAccount)
     }
 
-    private func lockedSecret(for account: String) -> String? {
+    /// A read can wait on a SecurityAgent sheet. It runs off the main thread, one at a time, with the
+    /// hold listener paused so the sheet gets every keystroke and the overlay stays responsive.
+    private func readSecret(_ account: String) async -> SecretRead {
+        let secrets = self.secrets
         shortcut?.setModifierHoldPaused(true)
         defer { shortcut?.setModifierHoldPaused(false) }
-        return secrets.secret(for: account)
+        return await withCheckedContinuation { continuation in
+            keychainQueue.async { continuation.resume(returning: secrets.readSecret(for: account)) }
+        }
+    }
+
+    private func writeSecret(_ value: String?, for account: String) async {
+        let secrets = self.secrets
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            keychainQueue.async {
+                try? secrets.setSecret(value, for: account)
+                continuation.resume()
+            }
+        }
+    }
+
+    /// Codex never needs the OpenAI-compatible key, so it never touches the keychain.
+    private func transcriptionAPIKey() async throws -> String? {
+        guard preferences.usesOpenAICompatible else { return nil }
+        switch await readSecret(KeychainSecretStore.apiKeyAccount) {
+        case .value(let key): return key
+        case .missing: return nil
+        case .unavailable: throw DictationError.keychainUnavailable
+        }
+    }
+
+    private func chatCleanupAPIKey(fallback: String?) async -> String? {
+        if let key = await readSecret(KeychainSecretStore.chatAPIKeyAccount).value { return key }
+        if let fallback { return fallback }
+        guard !preferences.usesOpenAICompatible else { return nil }
+        return await readSecret(KeychainSecretStore.apiKeyAccount).value
     }
 
     private func performTranscription(_ url: URL) async throws -> String {
-        let apiKey = lockedSecret(for: KeychainSecretStore.apiKeyAccount)
+        let apiKey = try await transcriptionAPIKey()
+        let prompt = preferences.transcriptionPrompt
         let raw: String
         if let transcribeAudio {
             raw = try await transcribeAudio(url)
@@ -779,7 +822,7 @@ final class AppModel: NSObject, ObservableObject {
                 file: url,
                 provider: preferences.transcriptionProvider,
                 language: preferences.openAIEndpoint.languageHint,
-                prompt: preferences.vocabularyPrompt,
+                prompt: prompt,
                 openAI: preferences.openAIEndpoint,
                 apiKey: apiKey
             )
@@ -790,7 +833,7 @@ final class AppModel: NSObject, ObservableObject {
             chat = (
                 preferences.chatCleanupModel,
                 base.isEmpty ? preferences.openAIBaseURL : base,
-                lockedSecret(for: KeychainSecretStore.chatAPIKeyAccount) ?? apiKey
+                await chatCleanupAPIKey(fallback: apiKey)
             )
         } else {
             chat = nil
@@ -800,8 +843,10 @@ final class AppModel: NSObject, ObservableObject {
             deterministicCleanup: preferences.deterministicCleanup,
             extraFilterWords: preferences.extraFilterWords,
             replacements: preferences.replacementList,
+            chineseScript: preferences.effectiveChineseScript,
+            prompt: prompt,
             chat: chat,
-            session: OpenAICompatibleClient.makeSession()
+            session: HTTPClient.shared
         )
     }
 

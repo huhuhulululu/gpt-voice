@@ -13,6 +13,10 @@ public enum DictationError: LocalizedError {
     case emptyTranscript
     case apiKeyRejected
     case invalidEndpoint
+    /// The key is stored, but macOS did not release it (Deny, Cancel, or a locked keychain).
+    case keychainUnavailable
+    /// Too short to hold speech. Sending it invites a Whisper hallucination.
+    case recordingTooShort
 
     public var errorDescription: String? {
         switch self {
@@ -31,6 +35,9 @@ public enum DictationError: LocalizedError {
         case .emptyTranscript: return "No speech was found. Try another recording."
         case .apiKeyRejected: return "The transcription server rejected the API key. Check Settings → Transcription."
         case .invalidEndpoint: return "The transcription server URL is not valid."
+        case .keychainUnavailable:
+            return "macOS did not release the API key from the Keychain. Try again and choose Always Allow."
+        case .recordingTooShort: return "The recording was too short. Hold the shortcut while you speak."
         }
     }
 }

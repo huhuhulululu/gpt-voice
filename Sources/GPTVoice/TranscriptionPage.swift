@@ -68,6 +68,14 @@ struct TranscriptionPage: View {
                     }
                 }
             }
+            if preferences.transcriptsInChinese {
+                SettingsRow(title: "Chinese script",
+                            detail: "Whisper sometimes answers in Traditional. Goice converts to the script you read.") {
+                    AppSegmented(label: "Chinese script", options: ChineseScript.allCases, title: \.title,
+                                 selection: $preferences.chineseScript)
+                        .disabled(!model.canChangeSettings)
+                }
+            }
             SettingsRow(title: "API key",
                         detail: model.openAIKeyPresent
                             ? "A key is saved on this Mac. Enter a new one to replace it."

@@ -117,6 +117,26 @@ final class OverlayStateTests: XCTestCase {
         XCTAssertTrue(limited.message.contains("request limit"))
     }
 
+    func testTooShortHoldAndKeychainDenialHaveTheirOwnRecovery() {
+        let short = DictationFailure(transcriptionError: DictationError.recordingTooShort)
+        XCTAssertEqual(short.kind, .noSpeech)
+        XCTAssertEqual(short.recovery, .none)
+        XCTAssertEqual(DictationOverlayState(phase: .failed(short), elapsed: 0, level: 0),
+                       .message(label: "Hold a little longer", kind: .noSpeech))
+
+        let keychain = DictationFailure(transcriptionError: DictationError.keychainUnavailable)
+        XCTAssertEqual(keychain.recovery, .retry)
+        XCTAssertTrue(keychain.keepsAudio, "Retry resends the same take after Always Allow")
+        XCTAssertEqual(DictationOverlayState(phase: .failed(keychain), elapsed: 0, level: 0),
+                       .message(label: "Allow Keychain access", kind: .warning, actionTitle: "Retry"))
+    }
+
+    func testMeterKeepsQuietSpeechVisible() {
+        XCTAssertEqual(AudioCapture.meterLevel(decibels: -60), 0)
+        XCTAssertGreaterThan(AudioCapture.meterLevel(decibels: -40), 0.25, "A soft voice still moves the bars")
+        XCTAssertEqual(AudioCapture.meterLevel(decibels: -5), 1)
+    }
+
     func testShortUtteranceIsNoSpeechWithoutRetry() {
         let empty = DictationFailure(transcriptionError: DictationError.emptyTranscript)
         XCTAssertEqual(empty.kind, .noSpeech)

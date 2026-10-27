@@ -18,8 +18,11 @@ Automatic paste first tries an Accessibility insert at the caret. If that is not
 
 Sign-in and token renewal for the Codex path use the installed Codex CLI app-server protocol.
 Goice reads the resulting file-backed ChatGPT session. Codex API-key auth files are still rejected.
-OpenAI-compatible API keys are stored in the Keychain, never in the repository or UserDefaults.
-Menu and `--diagnose` only check that an item exists (`kSecUseAuthenticationUIFail`). The secret is read at most once per process, then cached. A successful read of a pre-resign file-based item rewrites it as a Data Protection item (`AfterFirstUnlockThisDeviceOnly`) so later launches of the same signed binary do not prompt.
+OpenAI-compatible API keys are stored in the login keychain, never in the repository or UserDefaults. The Data Protection keychain is not used: it needs a keychain-access-groups entitlement and provisioning profile this Developer ID app does not have.
+Menu and `--diagnose` only check that an item exists; they never decrypt it, so they cannot raise SecurityAgent or hang a headless packaging check. Codex dictation never reads the key.
+Each item records the signature that wrote it (team ID for Developer ID, CDHash for ad-hoc). After a re-sign, the first OpenAI-compatible dictation reads the old item once — the only moment SecurityAgent can appear — then re-adds it under the new signature, writing a staging copy first so a failed replace never loses the key. The value is cached for the process, so later recordings are silent, and relaunches of the same signature read silently. Reads run off the main thread, one at a time, with the hold listener paused; Deny becomes a Retry failure instead of a keyless request.
+
+Before upload, a WAV under 0.3 s is rejected as too short (accidental holds otherwise come back as Whisper hallucinations), and quiet 16-bit speech is lifted toward −20 dBFS, capped at +20 dB, without clipping; near-silence is left alone. For Chinese (`zh`), the Whisper prompt is a Mandarin lead sentence (plus custom words in Chinese style), echoes of that prompt are dropped, and output can be converted to Simplified or Traditional. Cleanup removes fillers such as 嗯 only when they stand alone, so 金额 and 额外 are untouched.
 The current implementation does not read Codex sessions stored only in the macOS Keychain.
 
 The service route is `https://chatgpt.com/backend-api/transcribe`.

@@ -26,6 +26,7 @@ final class AppPreferences: ObservableObject {
         static let chatCleanup = "chatCleanup"
         static let chatCleanupModel = "chatCleanupModel"
         static let chatCleanupBaseURL = "chatCleanupBaseURL"
+        static let chineseScript = "chineseScript"
     }
 
     @Published var overlayPlacement: OverlayPlacement {
@@ -113,6 +114,10 @@ final class AppPreferences: ObservableObject {
         didSet { defaults.set(chatCleanupBaseURL, forKey: Key.chatCleanupBaseURL) }
     }
 
+    @Published var chineseScript: ChineseScript {
+        didSet { defaults.set(chineseScript.rawValue, forKey: Key.chineseScript) }
+    }
+
     var openAIEndpoint: OpenAICompatibleEndpoint {
         OpenAICompatibleEndpoint(baseURL: openAIBaseURL, model: openAIModel, language: transcriptionLanguage)
     }
@@ -120,7 +125,13 @@ final class AppPreferences: ObservableObject {
     var extraFilterWords: [String] { Vocabulary.parseWordList(filterWords) }
     var vocabularyWordList: [String] { Vocabulary.parseWordList(vocabularyWords) }
     var replacementList: [VocabularyReplacement] { Vocabulary.parseReplacements(vocabularyReplacements) }
-    var vocabularyPrompt: String? { Vocabulary.glossaryPrompt(from: vocabularyWordList) }
+    var transcriptsInChinese: Bool { ChineseScript.isChinese(transcriptionLanguage) }
+    /// Script conversion applies only when the language hint is Chinese.
+    var effectiveChineseScript: ChineseScript { transcriptsInChinese ? chineseScript : .unchanged }
+    var transcriptionPrompt: String? {
+        Vocabulary.transcriptionPrompt(words: vocabularyWordList, language: transcriptionLanguage,
+                                       script: chineseScript)
+    }
 
     var usesOpenAICompatible: Bool { transcriptionProvider == .openAICompatible }
 
@@ -181,5 +192,6 @@ final class AppPreferences: ObservableObject {
         chatCleanup = defaults.bool(forKey: Key.chatCleanup)
         chatCleanupModel = defaults.string(forKey: Key.chatCleanupModel) ?? "gpt-4o-mini"
         chatCleanupBaseURL = defaults.string(forKey: Key.chatCleanupBaseURL) ?? ""
+        chineseScript = defaults.string(forKey: Key.chineseScript).flatMap(ChineseScript.init(rawValue:)) ?? .simplified
     }
 }

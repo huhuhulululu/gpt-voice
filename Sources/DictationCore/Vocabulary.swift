@@ -41,6 +41,35 @@ public enum Vocabulary {
         return "Voice dictation. Prefer these terms when they fit the speech: \(terms.joined(separator: ", "))."
     }
 
+    /// Mandarin sentence that steers Whisper to the chosen script with punctuation.
+    public static func chinesePromptLead(_ script: ChineseScript) -> String {
+        script == .traditional ? "以下是普通話的句子。" : "以下是普通话的句子。"
+    }
+
+    /// Whisper `prompt` for this language. Chinese gets a Mandarin lead (and terms in Chinese style)
+    /// because an English prompt pulls zh audio toward English. Other languages use the glossary sentence.
+    public static func transcriptionPrompt(words: [String], language: String?,
+                                           script: ChineseScript = .simplified) -> String? {
+        let terms = words.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        guard ChineseScript.isChinese(language) else { return glossaryPrompt(from: terms) }
+        let lead = chinesePromptLead(script)
+        guard !terms.isEmpty else { return lead }
+        return lead + "可能出现的词：" + terms.joined(separator: "、") + "。"
+    }
+
+    /// Whisper repeats its prompt on near-silent audio. Drop that echo instead of pasting it.
+    public static func stripPromptEcho(_ text: String, prompt: String?) -> String {
+        guard let prompt = prompt?.trimmingCharacters(in: .whitespacesAndNewlines), !prompt.isEmpty else {
+            return text
+        }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed == prompt { return "" }
+        if trimmed.hasPrefix(prompt) {
+            return String(trimmed.dropFirst(prompt.count)).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return text
+    }
+
     public static func applyReplacements(_ text: String, _ replacements: [VocabularyReplacement]) -> String {
         let ordered = replacements
             .map { VocabularyReplacement(mishear: $0.mishear.trimmingCharacters(in: .whitespacesAndNewlines),

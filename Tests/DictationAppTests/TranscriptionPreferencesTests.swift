@@ -110,6 +110,46 @@ final class TranscriptionPreferencesTests: XCTestCase {
         XCTAssertEqual(model.lastTranscript, "a clear thought.")
     }
 
+    func testCodexTranscriptionNeverReadsTheKeychain() async throws {
+        let secrets = CountingSecretStore([KeychainSecretStore.apiKeyAccount: "sk-stale"])
+        let preferences = AppPreferences(defaults: UserDefaults(suiteName: "goice-codex-key-\(UUID().uuidString)")!)
+        preferences.transcriptionProvider = .codex
+        let model = AppModel(preferences: preferences,
+                             history: TranscriptionHistory(fileURL: FileManager.default.temporaryDirectory.appendingPathComponent("gpt-voice-test-\(UUID().uuidString)/history.json")),
+                             secrets: secrets) { _ in "测试测试测试" }
+        defer { model.cleanup() }
+        model.transcribeFile(URL(fileURLWithPath: "/tmp/goice-codex.wav"), forPractice: true)
+        try await waitUntil { model.phase == .finished(.previewed) }
+        XCTAssertEqual(model.practiceTranscript, "测试测试测试")
+        XCTAssertEqual(secrets.secretCalls, 0)
+    }
+
+    func testDeniedKeychainUnlockOffersRetryInsteadOfAKeylessRequest() async throws {
+        let preferences = AppPreferences(defaults: UserDefaults(suiteName: "goice-denied-\(UUID().uuidString)")!)
+        preferences.transcriptionProvider = .openAICompatible
+        preferences.openAIBaseURL = "https://api.groq.com/openai/v1"
+        let model = AppModel(preferences: preferences,
+                             history: TranscriptionHistory(fileURL: FileManager.default.temporaryDirectory.appendingPathComponent("gpt-voice-test-\(UUID().uuidString)/history.json")),
+                             secrets: DenyingSecretStore()) { _ in
+            XCTFail("No request may be sent without the key")
+            return "never"
+        }
+        defer { model.cleanup() }
+        model.refreshStatus()
+        XCTAssertTrue(model.transcriptionIsReady)
+        model.transcribeFile(URL(fileURLWithPath: "/tmp/goice-denied.wav"), forPractice: true)
+        try await waitUntil { if case .failed = model.phase { return true }; return false }
+        guard case .failed(let failure) = model.phase else { return XCTFail("Expected a failure") }
+        XCTAssertEqual(failure.recovery, .retry)
+        XCTAssertEqual(failure.overlayMessage, "Allow Keychain access")
+    }
+
+    private func waitUntil(_ condition: () -> Bool) async throws {
+        let limit = Date().addingTimeInterval(3)
+        while !condition(), Date() < limit { try await Task.sleep(nanoseconds: 10_000_000) }
+        XCTAssertTrue(condition())
+    }
+
     func testRefreshStatusDoesNotUnlockTheAPIKey() {
         let secrets = CountingSecretStore([KeychainSecretStore.apiKeyAccount: "sk-test"])
         let model = AppModel(preferences: AppPreferences(defaults: UserDefaults(suiteName: "goice-key-\(UUID().uuidString)")!),
@@ -121,6 +161,16 @@ final class TranscriptionPreferencesTests: XCTestCase {
         XCTAssertGreaterThan(secrets.containsCalls, 0)
         XCTAssertTrue(model.openAIKeyPresent)
     }
+}
+
+/// The key exists, but the user chose Deny in SecurityAgent.
+private final class DenyingSecretStore: SecretStore, @unchecked Sendable {
+    func secret(for account: String) -> String? { nil }
+    func readSecret(for account: String) -> SecretRead {
+        account == KeychainSecretStore.apiKeyAccount ? .unavailable : .missing
+    }
+    func containsSecret(for account: String) -> Bool { account == KeychainSecretStore.apiKeyAccount }
+    func setSecret(_ value: String?, for account: String) throws {}
 }
 
 /// Counts Keychain reads. Menu/status must use containsSecret, never secret().

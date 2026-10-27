@@ -5,7 +5,7 @@ public final class TranscriptionClient {
     private let session: URLSession
 
     public init() {
-        session = HTTPClient.makeSession()
+        session = HTTPClient.shared
     }
 
     init(session: URLSession) { self.session = session }
@@ -17,7 +17,7 @@ public final class TranscriptionClient {
         let attributes = try FileManager.default.attributesOfItem(atPath: file.path)
         guard let size = attributes[.size] as? NSNumber, size.intValue > 0 else { throw DictationError.invalidAudio }
         guard size.intValue < 20_000_000 else { throw DictationError.audioTooLarge }
-        let audio = try Data(contentsOf: file)
+        let audio = try AudioPreparation.prepareForUpload(Data(contentsOf: file), fileExtension: file.pathExtension)
         let multipart = MultipartAudio(audio: audio, filename: "dictation.\(file.pathExtension.lowercased())",
                                        contentType: contentType, language: language)
         let current = try CodexCredentials.load()

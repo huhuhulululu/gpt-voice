@@ -47,15 +47,21 @@ enum CommandLineTool {
                 model: defaults.string(forKey: "openAIModel") ?? "whisper-1",
                 language: defaults.string(forKey: "transcriptionLanguage") ?? ""
             )
-            let prompt = Vocabulary.glossaryPrompt(from: Vocabulary.parseWordList(defaults.string(forKey: "vocabularyWords") ?? ""))
-            let text = try await TranscriptionService.transcribe(
+            let script = ChineseScript(rawValue: defaults.string(forKey: "chineseScript") ?? "") ?? .simplified
+            let prompt = Vocabulary.transcriptionPrompt(
+                words: Vocabulary.parseWordList(defaults.string(forKey: "vocabularyWords") ?? ""),
+                language: endpoint.languageHint, script: script)
+            let apiKey = provider == .openAICompatible
+                ? KeychainSecretStore().secret(for: KeychainSecretStore.apiKeyAccount) : nil
+            let raw = try await TranscriptionService.transcribe(
                 file: url,
                 provider: provider,
                 language: endpoint.languageHint,
                 prompt: prompt,
                 openAI: endpoint,
-                apiKey: KeychainSecretStore().secret(for: KeychainSecretStore.apiKeyAccount)
+                apiKey: apiKey
             )
+            let text = Vocabulary.stripPromptEcho(raw, prompt: prompt)
             FileHandle.standardOutput.write(Data((text + "\n").utf8))
             return 0
         } catch {

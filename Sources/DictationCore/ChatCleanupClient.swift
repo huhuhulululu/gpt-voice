@@ -18,7 +18,7 @@ public enum ChatCleanupClient {
             "messages": [
                 [
                     "role": "system",
-                    "content": "Clean this voice transcript. Fix punctuation and sentence breaks. Remove filler words and trailing sign-offs. Do not add, invent, or summarize content. Return only the cleaned transcript."
+                    "content": "Clean this voice transcript. Fix punctuation and sentence breaks. Remove filler words and trailing sign-offs. Keep the original language and script; never translate. Do not add, invent, or summarize content. Return only the cleaned transcript."
                 ],
                 ["role": "user", "content": text]
             ]
@@ -46,10 +46,13 @@ public enum TranscriptPostProcessor {
         deterministicCleanup: Bool,
         extraFilterWords: [String],
         replacements: [VocabularyReplacement],
+        chineseScript: ChineseScript = .unchanged,
+        prompt: String? = nil,
         chat: (model: String, baseURL: String, apiKey: String?)?,
         session: URLSession
     ) async -> String {
-        var result = text
+        var result = Vocabulary.stripPromptEcho(text, prompt: prompt)
+        result = chineseScript.convert(result)
         if deterministicCleanup {
             var filters = TranscriptCleanup.defaultFilterWords
             filters.append(contentsOf: extraFilterWords)
@@ -58,12 +61,12 @@ public enum TranscriptPostProcessor {
         if !replacements.isEmpty {
             result = Vocabulary.applyReplacements(result, replacements)
         }
-        if let chat {
+        if let chat, !result.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             do {
                 let cleaned = try await ChatCleanupClient.clean(result, model: chat.model, baseURL: chat.baseURL,
                                                                 apiKey: chat.apiKey, session: session)
                 if !cleaned.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    result = cleaned
+                    result = chineseScript.convert(cleaned)
                 }
             } catch {
                 // Keep the deterministic result.
