@@ -11,6 +11,7 @@ An OpenAI-compatible server that you configure can stay on your machine. This ap
 | API key | macOS Keychain on this Mac, when using an OpenAI-compatible server |
 | Transcript | The selected text field, or your clipboard for manual paste |
 | Transcript history | `~/Library/Application Support/GPT Voice/history.json` on your Mac |
+| Word list | `~/Library/Application Support/GPT Voice/lexicon.json` on your Mac |
 | Preferences | macOS preferences on your Mac |
 
 The app removes owned audio files after successful transcription, cancellation, and normal cleanup.
@@ -22,6 +23,8 @@ Practice transcriptions, failed requests, and cancelled recordings are not saved
 Use **History** to copy a transcript, delete one entry, or clear all entries.
 History is not uploaded by Goice. The file is readable only by your macOS user account.
 Normal Mac backups can include this file. Audio is not kept in history.
+The word list holds only the words and corrections you add, with hit counts and dates. It is not stored in the Keychain, not synced, and Goice never reads Contacts or other apps' text to fill it.
+Recently heard words are sent as the transcription prompt to the service you chose. `--diagnose` prints counts only, never the words.
 ChatGPT's handling of uploaded audio is subject to your account settings and OpenAI's policies.
 
 Microphone access permits recording after you start dictation.

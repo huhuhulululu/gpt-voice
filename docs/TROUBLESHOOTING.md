@@ -71,7 +71,8 @@ You can also [build from source](../README.md#build-from-source).
 "/Applications/Goice.app/Contents/MacOS/Goice" --diagnose
 ```
 
-Review the output before sharing it. It does not print account credentials.
+Review the output before sharing it. It does not print account credentials or word-list entries.
+If Goice is running, `runningApp` shows its phase, whether the level meter, menu bar animation or overlay is live, and a two-second sample of `residentMB`, `cpuPercent` and `wakeupsPerSecond`. At rest, `idleQuiet` should be `true` and CPU near 0%.
 A command launched from a terminal can have a different macOS privacy context from a Finder-launched app.
 Check permission behavior in the actual installed app as well.
 

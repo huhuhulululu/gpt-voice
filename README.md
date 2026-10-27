@@ -53,7 +53,7 @@ If macOS shows a verification warning, ignore it and open **System Settings → 
 - System, Light and Dark themes, five accent colorways (Coral-Violet by default, Soft Blue, Sage, Amber, Graphite) and top or bottom pill placement.
 - Optional sound cues and launch at login. Launch at login starts off.
 - Short result notices that fade away. Local transcript history with copy and delete controls.
-- Optional OpenAI-compatible transcription, local cleanup, and a personal vocabulary list.
+- Optional OpenAI-compatible transcription, local cleanup, and a local word list: names to prefer and `heard → should be` corrections, addable from any History item (加入词库).
 
 History saves successful transcriptions on this Mac with their date, time, and whether they were pasted or copied. Pasted rows name the destination app. Copied rows show why paste was skipped, not tokens or other secrets. Copy any entry, delete one, or clear all.
 The default Codex path sends audio to ChatGPT. An OpenAI-compatible server that you configure can stay on your machine. [Read the privacy notes](docs/PRIVACY.md).
