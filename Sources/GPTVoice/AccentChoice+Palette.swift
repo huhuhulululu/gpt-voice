@@ -62,15 +62,20 @@ extension AccentChoice {
     }
 
     /// Foreground role: small selected icons and meter bars on app surfaces.
-    var foreground: Color {
+    var foreground: Color { Color(nsColor: nsForeground) }
+
+    var nsForeground: NSColor {
         switch self {
-        case .coralViolet: return AppPalette.dynamic(light: 0xC93D6E, dark: 0xFF8AAA)
-        case .softBlue: return AppPalette.dynamic(light: 0x3F6FD8, dark: 0x93ABFF)
-        case .sage: return AppPalette.dynamic(light: 0x3E7B5E, dark: 0x9BCBAD)
-        case .amber: return AppPalette.dynamic(light: 0xB45309, dark: 0xFFBA80)
-        case .graphite: return AppPalette.dynamic(light: 0x1C1C1E, dark: 0xECECEC)
+        case .coralViolet: return AppPalette.dynamicNS(light: 0xC93D6E, dark: 0xFF8AAA)
+        case .softBlue: return AppPalette.dynamicNS(light: 0x3F6FD8, dark: 0x93ABFF)
+        case .sage: return AppPalette.dynamicNS(light: 0x3E7B5E, dark: 0x9BCBAD)
+        case .amber: return AppPalette.dynamicNS(light: 0xB45309, dark: 0xFFBA80)
+        case .graphite: return AppPalette.dynamicNS(light: 0x1C1C1E, dark: 0xECECEC)
         }
     }
+
+    /// The menu bar mark while listening. Graphite has no hue to lend, so it keeps the system recording red.
+    var listeningTint: NSColor { self == .graphite ? .systemRed : nsForeground }
 
     /// Tint for the few remaining system controls, such as progress spinners. Graphite keeps the system tint.
     var tint: Color? { self == .graphite ? nil : color }

@@ -10,6 +10,12 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     private let statusItem: NSStatusItem
     private let menu: NSMenu
     private var phaseObserver: AnyCancellable?
+    private var accentObserver: AnyCancellable?
+    private var workingTimer: Timer?
+    private var workingFrame = 0
+    private lazy var workingImages: [NSImage] = (0..<MenuBarGlyph.workingFrameCount).map {
+        MenuBarGlyph.image(.working(frame: $0), accessibilityDescription: "\(AppBrand.displayName), working")
+    }
 
     init(model: AppModel, windows: WindowCoordinator) {
         self.model = model
@@ -26,30 +32,71 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
             .removeDuplicates()
             .receive(on: DispatchQueue.main)
             .sink { [weak self] phase in self?.updateIcon(for: phase) }
+        accentObserver = model.preferences.$accent
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                self.updateIcon(for: self.model.phase)
+            }
     }
 
+    /// Idle and finished: the plain mark. Recording: the taller mark in the listening tint. Working: three
+    /// frames at 0.12 s, still under Reduce Motion. Failed: dimmed bars with an orange dot.
     private func updateIcon(for phase: DictationPhase) {
-        let symbol: String
         let description: String
         switch phase {
-        case .preparing, .recording: symbol = "mic.fill"; description = "\(AppBrand.displayName), listening"
-        case .transcribing, .pasting: symbol = "mic.circle"; description = "\(AppBrand.displayName), working"
-        case .failed: symbol = "mic.slash"; description = "\(AppBrand.displayName), needs attention"
-        case .idle, .finished: symbol = "mic"; description = AppBrand.displayName
+        case .preparing, .recording:
+            description = "\(AppBrand.displayName), listening"
+            statusItem.button?.image = MenuBarGlyph.image(.listening, accessibilityDescription: description)
+        case .transcribing, .pasting:
+            description = "\(AppBrand.displayName), working"
+            startWorkingAnimation()
+        case .failed:
+            description = "\(AppBrand.displayName), needs attention"
+            statusItem.button?.image = MenuBarGlyph.image(.attention, accessibilityDescription: description)
+        case .idle, .finished:
+            description = AppBrand.displayName
+            statusItem.button?.image = MenuBarGlyph.image(.idle, accessibilityDescription: description)
         }
-        let image = NSImage(systemSymbolName: symbol, accessibilityDescription: description)
-            ?? NSImage(systemSymbolName: "mic", accessibilityDescription: description)
-        image?.isTemplate = true
-        statusItem.button?.image = image
+        if phase != .transcribing && phase != .pasting {
+            stopWorkingAnimation()
+        }
         statusItem.button?.toolTip = description
         switch phase {
         case .recording:
-            statusItem.button?.contentTintColor = .systemRed
+            statusItem.button?.contentTintColor = model.preferences.accent.listeningTint
         case .failed:
             statusItem.button?.contentTintColor = .systemOrange
         default:
             statusItem.button?.contentTintColor = nil
         }
+    }
+
+    private func startWorkingAnimation() {
+        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            stopWorkingAnimation()
+            statusItem.button?.image = workingImages[MenuBarGlyph.restingWorkingFrame]
+            return
+        }
+        statusItem.button?.image = workingImages[workingFrame]
+        guard workingTimer == nil else { return }
+        let timer = Timer(timeInterval: MenuBarGlyph.workingFrameInterval, target: self,
+                          selector: #selector(advanceWorkingFrame(_:)), userInfo: nil, repeats: true)
+        workingTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    private func stopWorkingAnimation() {
+        workingTimer?.invalidate()
+        workingTimer = nil
+        workingFrame = 0
+    }
+
+    @objc private func advanceWorkingFrame(_ timer: Timer) {
+        guard timer === workingTimer else { return }
+        workingFrame = (workingFrame + 1) % MenuBarGlyph.workingFrameCount
+        statusItem.button?.image = workingImages[workingFrame]
     }
 
     func menuNeedsUpdate(_ menu: NSMenu) {
